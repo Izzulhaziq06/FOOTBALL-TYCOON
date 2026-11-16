@@ -1,0 +1,25 @@
+{
+  "seasonId": "2015/16",
+  "startDate": "2015-08-08",
+  "uclClubIds": [
+    "chelsea", "man_city", "arsenal", "man_utd",
+    "barcelona", "real_madrid", "atletico", "valencia",
+    "bayern", "wolfsburg", "gladbach", "leverkusen",
+    "juventus", "roma", "psg", "lyon"
+  ],
+  "uelClubIds": [
+    "tottenham", "liverpool", "southampton", "west_ham",
+    "sevilla", "villarreal", "athletic",
+    "dortmund", "schalke",
+    "lazio", "napoli", "fiorentina",
+    "monaco", "marseille", "saint_etienne", "bordeaux"
+  ],
+  "historicalTransfers": [
+    { "playerName": "Kevin De Bruyne", "fromClubId": "wolfsburg", "toClubId": "man_city", "fee": 76000000, "window": "Summer" },
+    { "playerName": "Raheem Sterling", "fromClubId": "liverpool", "toClubId": "man_city", "fee": 63700000, "window": "Summer" },
+    { "playerName": "Anthony Martial", "fromClubId": "monaco", "toClubId": "man_utd", "fee": 60000000, "window": "Summer" },
+    { "playerName": "Ángel Di María", "fromClubId": "man_utd", "toClubId": "psg", "fee": 63000000, "window": "Summer" },
+    { "playerName": "Arturo Vidal", "fromClubId": "juventus", "toClubId": "bayern", "fee": 39250000, "window": "Summer" },
+    { "playerName": "Roberto Firmino", "fromClubId": "hoffenheim", "toClubId": "liverpool", "fee": 41000000, "window": "Summer" }
+  ]
+}

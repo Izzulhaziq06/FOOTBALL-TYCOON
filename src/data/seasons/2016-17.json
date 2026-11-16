@@ -1,0 +1,24 @@
+{
+  "seasonId": "2016/17",
+  "startDate": "2016-08-13",
+  "uclClubIds": [
+    "leicester", "arsenal", "tottenham", "man_city",
+    "barcelona", "real_madrid", "atletico", "sevilla",
+    "bayern", "dortmund", "leverkusen", "gladbach",
+    "juventus", "napoli", "psg", "monaco"
+  ],
+  "uelClubIds": [
+    "man_utd", "southampton", "west_ham", "chelsea",
+    "villarreal", "athletic", "celta",
+    "schalke", "hertha",
+    "roma", "inter", "fiorentina",
+    "lyon", "saint_etienne", "nice", "liverpool"
+  ],
+  "historicalTransfers": [
+    { "playerName": "Paul Pogba", "fromClubId": "juventus", "toClubId": "man_utd", "fee": 105000000, "window": "Summer" },
+    { "playerName": "Gonzalo Higuaín", "fromClubId": "napoli", "toClubId": "juventus", "fee": 90000000, "window": "Summer" },
+    { "playerName": "N'Golo Kanté", "fromClubId": "leicester", "toClubId": "chelsea", "fee": 35800000, "window": "Summer" },
+    { "playerName": "Sadio Mané", "fromClubId": "southampton", "toClubId": "liverpool", "fee": 41200000, "window": "Summer" },
+    { "playerName": "Mats Hummels", "fromClubId": "dortmund", "toClubId": "bayern", "fee": 35000000, "window": "Summer" }
+  ]
+}

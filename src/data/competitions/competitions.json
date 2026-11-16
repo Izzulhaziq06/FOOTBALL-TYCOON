@@ -1,0 +1,58 @@
+[
+  {
+    "id": "epl",
+    "name": "English Premier League",
+    "shortName": "Premier League",
+    "country": "England",
+    "competitionFormat": "league",
+    "tier": 1
+  },
+  {
+    "id": "laliga",
+    "name": "Spanish La Liga",
+    "shortName": "La Liga",
+    "country": "Spain",
+    "competitionFormat": "league",
+    "tier": 1
+  },
+  {
+    "id": "bundesliga",
+    "name": "German Bundesliga",
+    "shortName": "Bundesliga",
+    "country": "Germany",
+    "competitionFormat": "league",
+    "tier": 1
+  },
+  {
+    "id": "seriea",
+    "name": "Italian Serie A",
+    "shortName": "Serie A",
+    "country": "Italy",
+    "competitionFormat": "league",
+    "tier": 1
+  },
+  {
+    "id": "ligue1",
+    "name": "French Ligue 1",
+    "shortName": "Ligue 1",
+    "country": "France",
+    "competitionFormat": "league",
+    "tier": 1
+  },
+  {
+    "id": "ucl",
+    "name": "UEFA Champions League",
+    "shortName": "Champions League",
+    "country": "Europe",
+    "competitionFormat": "knockout",
+    "tier": 1
+  },
+  {
+    "id": "uel",
+    "name": "UEFA Europa League",
+    "shortName": "Europa League",
+    "country": "Europe",
+    "competitionFormat": "knockout",
+    "tier": 2
+  }
+]

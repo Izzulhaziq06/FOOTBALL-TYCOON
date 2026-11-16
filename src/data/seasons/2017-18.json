@@ -1,0 +1,24 @@
+{
+  "seasonId": "2017/18",
+  "startDate": "2017-08-11",
+  "uclClubIds": [
+    "chelsea", "tottenham", "man_city", "liverpool", "man_utd",
+    "real_madrid", "barcelona", "atletico", "sevilla",
+    "bayern", "dortmund", "juventus", "roma", "napoli",
+    "monaco", "psg"
+  ],
+  "uelClubIds": [
+    "arsenal", "everton",
+    "villarreal", "sociedad", "athletic",
+    "hoffenheim", "hertha",
+    "lazio", "ac_milan", "inter",
+    "lyon", "marseille", "nice", "bordeaux", "valencia", "leverkusen"
+  ],
+  "historicalTransfers": [
+    { "playerName": "Neymar Jr", "fromClubId": "barcelona", "toClubId": "psg", "fee": 222000000, "window": "Summer" },
+    { "playerName": "Ousmane Dembélé", "fromClubId": "dortmund", "toClubId": "barcelona", "fee": 105000000, "window": "Summer" },
+    { "playerName": "Virgil van Dijk", "fromClubId": "southampton", "toClubId": "liverpool", "fee": 84650000, "window": "Winter" },
+    { "playerName": "Romelu Lukaku", "fromClubId": "everton", "toClubId": "man_utd", "fee": 84700000, "window": "Summer" },
+    { "playerName": "Mohamed Salah", "fromClubId": "roma", "toClubId": "liverpool", "fee": 42000000, "window": "Summer" }
+  ]
+}

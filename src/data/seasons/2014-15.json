@@ -1,0 +1,25 @@
+{
+  "seasonId": "2014/15",
+  "startDate": "2014-08-16",
+  "uclClubIds": [
+    "chelsea", "man_city", "arsenal", "liverpool",
+    "real_madrid", "barcelona", "atletico", "athletic",
+    "bayern", "dortmund", "leverkusen", "schalke",
+    "juventus", "roma", "psg", "monaco"
+  ],
+  "uelClubIds": [
+    "tottenham", "everton", "man_utd",
+    "sevilla", "villarreal", "valencia",
+    "wolfsburg", "gladbach",
+    "napoli", "fiorentina", "inter",
+    "lyon", "saint_etienne", "lille", "marseille", "torino"
+  ],
+  "historicalTransfers": [
+    { "playerName": "Luis Suárez", "fromClubId": "liverpool", "toClubId": "barcelona", "fee": 81700000, "window": "Summer" },
+    { "playerName": "James Rodríguez", "fromClubId": "monaco", "toClubId": "real_madrid", "fee": 75000000, "window": "Summer" },
+    { "playerName": "Ángel Di María", "fromClubId": "real_madrid", "toClubId": "man_utd", "fee": 75000000, "window": "Summer" },
+    { "playerName": "Alexis Sánchez", "fromClubId": "barcelona", "toClubId": "arsenal", "fee": 42500000, "window": "Summer" },
+    { "playerName": "Diego Costa", "fromClubId": "atletico", "toClubId": "chelsea", "fee": 38000000, "window": "Summer" },
+    { "playerName": "Toni Kroos", "fromClubId": "bayern", "toClubId": "real_madrid", "fee": 25000000, "window": "Summer" }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "FOOTBALL TYCOON",
+  "description": "Build Your Club. Control Your Legacy. A local-first historical football management simulation spanning the 2014/15 to 2018/19 seasons.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

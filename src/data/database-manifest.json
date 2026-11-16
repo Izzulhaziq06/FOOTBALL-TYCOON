@@ -1,0 +1,116 @@
+{
+  "project": "FOOTBALL TYCOON",
+  "schemaVersion": "1.1.0",
+  "disclaimer": "Starter Historical Database: Club identities, stadiums, league memberships, and featured player-club-season stints are curated from public historical football records for 2014/15–2018/19. Numerical player attributes (1-100), market values, wages, skill slot assignments, and supplementary squad depth players are gameplay-estimated simulation values and are not official third-party ratings. Champions League and Europa League use a simplified 16-club knockout format seeded from the 50-club starter catalog rather than full historical group-stage brackets.",
+  "verifiedFields": [
+    "Club name, country, league membership, founding year, stadium name and capacity",
+    "League memberships across all 5 domestic top-flight starter pools",
+    "Featured player names, nationalities, birth dates, primary positions, and season-by-season club stints",
+    "Notable historical transfer milestones"
+  ],
+  "estimatedGameplayFields": [
+    "1-100 technical, physical, and mental attribute profiles",
+    "Position-weighted overall ratings and potential ceilings",
+    "Playstyle skill pairs (Blue Skill 1 / Purple Skill 2) and Superstar tags",
+    "Transfer market valuations, weekly wages, and contract expiry years",
+    "Supplementary club-depth/academy players generated to complete 18-man playable squads",
+    "Simplified 16-club knockout brackets for UEFA Champions League and UEFA Europa League"
+  ],
+  "seasons": [
+    {
+      "seasonId": "2014/15",
+      "title": "2014/15 Season",
+      "description": "MSN forms at Barcelona, Chelsea dominate England under pragmatic counter-attack, and Juventus surge to the European final.",
+      "availableCompetitions": [
+        "English Premier League",
+        "Spanish La Liga",
+        "German Bundesliga",
+        "Italian Serie A",
+        "French Ligue 1",
+        "UEFA Champions League",
+        "UEFA Europa League"
+      ],
+      "availableClubsCount": 50,
+      "availablePlayersCount": 900,
+      "verifiedHistoricalPlayersCount": 141,
+      "completenessLabel": "Curated Starter Database (Top 10 Clubs / League)",
+      "completenessNote": "10 verified top-flight clubs per league across 5 countries (all 50 clubs include verified historical players alongside clearly marked generated depth players). UCL/UEL use a simplified 16-team knockout bracket."
+    },
+    {
+      "seasonId": "2015/16",
+      "title": "2015/16 Season",
+      "description": "Leicester City shock English football, Zidane takes charge in Madrid, and Guardiola concludes his Munich tenure.",
+      "availableCompetitions": [
+        "English Premier League",
+        "Spanish La Liga",
+        "German Bundesliga",
+        "Italian Serie A",
+        "French Ligue 1",
+        "UEFA Champions League",
+        "UEFA Europa League"
+      ],
+      "availableClubsCount": 50,
+      "availablePlayersCount": 901,
+      "verifiedHistoricalPlayersCount": 150,
+      "completenessLabel": "Curated Starter Database (Top 10 Clubs / League)",
+      "completenessNote": "10 verified top-flight clubs per league across 5 countries (all 50 clubs include verified historical players alongside clearly marked generated depth players). UCL/UEL use a simplified 16-team knockout bracket."
+    },
+    {
+      "seasonId": "2016/17",
+      "title": "2016/17 Season",
+      "description": "Monaco's teenage prodigies storm Europe, Conte introduces the 3-4-3 in England, and Real Madrid defend the continental crown.",
+      "availableCompetitions": [
+        "English Premier League",
+        "Spanish La Liga",
+        "German Bundesliga",
+        "Italian Serie A",
+        "French Ligue 1",
+        "UEFA Champions League",
+        "UEFA Europa League"
+      ],
+      "availableClubsCount": 50,
+      "availablePlayersCount": 901,
+      "verifiedHistoricalPlayersCount": 159,
+      "completenessLabel": "Curated Starter Database (Top 10 Clubs / League)",
+      "completenessNote": "10 verified top-flight clubs per league across 5 countries (all 50 clubs include verified historical players alongside clearly marked generated depth players). UCL/UEL use a simplified 16-team knockout bracket."
+    },
+    {
+      "seasonId": "2017/18",
+      "title": "2017/18 Season",
+      "description": "Paris breaks the world transfer record, Manchester City hit 100 points, and Liverpool's front three electrify Anfield.",
+      "availableCompetitions": [
+        "English Premier League",
+        "Spanish La Liga",
+        "German Bundesliga",
+        "Italian Serie A",
+        "French Ligue 1",
+        "UEFA Champions League",
+        "UEFA Europa League"
+      ],
+      "availableClubsCount": 50,
+      "availablePlayersCount": 903,
+      "verifiedHistoricalPlayersCount": 159,
+      "completenessLabel": "Curated Starter Database (Top 10 Clubs / League)",
+      "completenessNote": "10 verified top-flight clubs per league across 5 countries (all 50 clubs include verified historical players alongside clearly marked generated depth players). UCL/UEL use a simplified 16-team knockout bracket."
+    },
+    {
+      "seasonId": "2018/19",
+      "title": "2018/19 Season",
+      "description": "Cristiano Ronaldo arrives in Turin, Liverpool and Tottenham contest an all-English European final, and a relentless title race unfolds.",
+      "availableCompetitions": [
+        "English Premier League",
+        "Spanish La Liga",
+        "German Bundesliga",
+        "Italian Serie A",
+        "French Ligue 1",
+        "UEFA Champions League",
+        "UEFA Europa League"
+      ],
+      "availableClubsCount": 50,
+      "availablePlayersCount": 903,
+      "verifiedHistoricalPlayersCount": 151,
+      "completenessLabel": "Curated Starter Database (Top 10 Clubs / League)",
+      "completenessNote": "10 verified top-flight clubs per league across 5 countries (all 50 clubs include verified historical players alongside clearly marked generated depth players). UCL/UEL use a simplified 16-team knockout bracket."
+    }
+  ]
+}

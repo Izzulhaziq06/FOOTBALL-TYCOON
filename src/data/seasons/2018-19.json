@@ -1,0 +1,24 @@
+{
+  "seasonId": "2018/19",
+  "startDate": "2018-08-10",
+  "uclClubIds": [
+    "man_city", "man_utd", "tottenham", "liverpool",
+    "barcelona", "atletico", "real_madrid", "valencia",
+    "bayern", "schalke", "hoffenheim", "dortmund",
+    "juventus", "napoli", "psg", "lyon"
+  ],
+  "uelClubIds": [
+    "chelsea", "arsenal", "everton", "leicester",
+    "villarreal", "sevilla", "athletic",
+    "leverkusen", "frankfurt", "gladbach",
+    "lazio", "ac_milan", "inter", "roma",
+    "marseille", "rennes"
+  ],
+  "historicalTransfers": [
+    { "playerName": "Cristiano Ronaldo", "fromClubId": "real_madrid", "toClubId": "juventus", "fee": 117000000, "window": "Summer" },
+    { "playerName": "Kylian Mbappé", "fromClubId": "monaco", "toClubId": "psg", "fee": 180000000, "window": "Summer" },
+    { "playerName": "Alisson Becker", "fromClubId": "roma", "toClubId": "liverpool", "fee": 62500000, "window": "Summer" },
+    { "playerName": "Riyad Mahrez", "fromClubId": "leicester", "toClubId": "man_city", "fee": 67800000, "window": "Summer" },
+    { "playerName": "Thibaut Courtois", "fromClubId": "chelsea", "toClubId": "real_madrid", "fee": 35000000, "window": "Summer" }
+  ]
+}
