@@ -21,12 +21,17 @@ import { useCareerStore } from '../store/careerStore';
 import { useUiStore } from '../store/uiStore';
 import { Fixture, MatchResult, Mentality, PressingIntensity, SimulationSpeed } from '../types';
 import { ClubCrest } from '../components/shared/ClubCrest';
+import {
+  CompetitionEmblem,
+  GamePageHeader,
+  MomentumComparisonBar,
+} from '../components/shared/GamePrimitives';
 import { formatMoney, playUiTone } from '../utils/format';
 
 type MatchPhaseView = 'prep' | 'live' | 'report';
 
 export const MatchCenter: React.FC = () => {
-  const { career, settings, commitMatchday, rolloverSeason, updateSettings } = useCareerStore();
+  const { career, settings, isBusy, commitMatchday, rolloverSeason, updateSettings } = useCareerStore();
   const { navigate, setCompetitionsTab, pushToast } = useUiStore();
 
   const [view, setView] = useState<MatchPhaseView>('prep');
@@ -82,7 +87,6 @@ export const MatchCenter: React.FC = () => {
       career.players,
       career.seedCounter + career.currentMatchday * 97
     );
-    // Step 1 immediately to kick-off
     stepLiveMatchMinute(newSession, isUserHome ? 'home' : 'away');
     playUiTone('whistle', settings.soundEffectsEnabled);
 
@@ -98,8 +102,13 @@ export const MatchCenter: React.FC = () => {
 
   const handleQuickSim = async () => {
     if (!nextFixture) {
-      await commitMatchday();
-      pushToast('success', `Matchday ${career.currentMatchday} simulated.`);
+      const md = career.currentMatchday;
+      const ok = await commitMatchday();
+      if (ok) {
+        pushToast('success', `Matchday ${md} simulated.`);
+      } else {
+        pushToast('error', 'Could not save matchday progress. Please retry.');
+      }
       return;
     }
 
@@ -117,7 +126,11 @@ export const MatchCenter: React.FC = () => {
       !isUserHome ? career.tactics : undefined
     );
 
-    await commitMatchday(nextFixture.id, result);
+    const ok = await commitMatchday(nextFixture.id, result);
+    if (!ok) {
+      pushToast('error', 'Could not save match result. Please retry.');
+      return;
+    }
     setCompletedReport({ fixture: nextFixture, result });
     setView('report');
     playUiTone('whistle', settings.soundEffectsEnabled);
@@ -129,7 +142,11 @@ export const MatchCenter: React.FC = () => {
     const result = finalizeLiveMatchSession(activeSession, userSide);
     const fix = career.fixtures.find((f) => f.id === activeSession.fixtureId);
     if (fix) {
-      await commitMatchday(fix.id, result);
+      const ok = await commitMatchday(fix.id, result);
+      if (!ok) {
+        pushToast('error', 'Could not save live match result. Please retry.');
+        return;
+      }
       setCompletedReport({ fixture: fix, result });
     }
     setIsPlaying(false);
@@ -137,7 +154,6 @@ export const MatchCenter: React.FC = () => {
     playUiTone('whistle', settings.soundEffectsEnabled);
   };
 
-  // Live simulation interval loop
   useEffect(() => {
     if (view !== 'live' || !isPlaying || !sessionRef.current) return;
 
@@ -180,9 +196,9 @@ export const MatchCenter: React.FC = () => {
   // Season Complete View
   if (seasonFinished && view !== 'report') {
     return (
-      <div className="rounded-lg border border-slate-800 bg-[#121824] p-8 text-center space-y-4 max-w-xl mx-auto mt-6">
-        <Trophy className="h-10 w-10 text-emerald-400 mx-auto" />
-        <h1 className="font-display text-3xl font-bold text-white">
+      <div className="ft-panel rounded-lg p-8 text-center space-y-4 max-w-xl mx-auto mt-6">
+        <Trophy className="h-12 w-12 text-emerald-400 mx-auto" />
+        <h1 className="font-display text-4xl font-extrabold text-[#F4F5F0]">
           {career.currentSeason} Season Complete
         </h1>
         <p className="text-sm text-slate-300">
@@ -196,17 +212,22 @@ export const MatchCenter: React.FC = () => {
               setCompetitionsTab('standings');
               navigate('competitions');
             }}
-            className="rounded-md border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-medium text-white"
+            className="rounded border border-slate-700 bg-[#0B1220] px-4 py-2.5 text-sm font-semibold text-white"
           >
             View Final Standings
           </button>
           <button
             type="button"
+            disabled={isBusy}
             onClick={async () => {
-              await rolloverSeason();
-              pushToast('success', 'New season initialized.');
+              const ok = await rolloverSeason();
+              if (ok) {
+                pushToast('success', 'New season initialized.');
+              } else {
+                pushToast('error', 'Season rollover could not be completed.');
+              }
             }}
-            className="rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+            className="ft-chamfer-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
           >
             Start Next Season
           </button>
@@ -219,8 +240,8 @@ export const MatchCenter: React.FC = () => {
   if (view === 'prep') {
     if (!nextFixture) {
       return (
-        <div className="rounded-lg border border-slate-800 bg-[#121824] p-8 text-center space-y-4 max-w-xl mx-auto">
-          <h1 className="font-display text-3xl font-bold text-white">
+        <div className="ft-panel rounded-lg p-8 text-center space-y-4 max-w-xl mx-auto">
+          <h1 className="font-display text-3xl font-extrabold text-[#F4F5F0]">
             Matchday {career.currentMatchday}
           </h1>
           <p className="text-sm text-slate-300">
@@ -228,8 +249,9 @@ export const MatchCenter: React.FC = () => {
           </p>
           <button
             type="button"
+            disabled={isBusy}
             onClick={handleQuickSim}
-            className="rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+            className="ft-chamfer-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
           >
             Advance Matchday
           </button>
@@ -243,52 +265,83 @@ export const MatchCenter: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-white">Match Preparation</h1>
-            <p className="text-xs text-slate-400">
-              {comp?.name} {nextFixture.roundName ? `· ${nextFixture.roundName}` : ''} · Matchday{' '}
-              {nextFixture.matchday} · {nextFixture.date}
-            </p>
-            {currentUserFixtures.length > 1 && (
-              <p className="text-[11px] text-amber-300 mt-1">
-                Double-fixture matchday: remaining scheduled match simulates alongside this fixture.
-              </p>
-            )}
+        <GamePageHeader
+          eyebrow={`${comp?.name ?? 'Matchday'}${nextFixture.roundName ? ` · ${nextFixture.roundName}` : ''}`}
+          title="Match Preparation"
+          accentColor={userClub.crest.primaryColor}
+          subtitle={
+            <>
+              Matchday {nextFixture.matchday} · {nextFixture.date}
+              {currentUserFixtures.length > 1 && (
+                <span className="block text-[11px] text-amber-300 mt-1">
+                  Double-fixture matchday: remaining scheduled match simulates alongside this fixture.
+                </span>
+              )}
+            </>
+          }
+          actions={
+            <button
+              type="button"
+              onClick={() => navigate('tactics')}
+              className="rounded border border-slate-700 bg-[#0B1220] hover:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200"
+            >
+              Edit Lineup ({career.tactics.formation})
+            </button>
+          }
+        />
+
+        {/* Broadcast Matchup Card */}
+        <section className="ft-broadcast-strip rounded-lg p-5 sm:p-7 space-y-6 relative overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 w-1.5"
+            style={{ backgroundColor: homeClub.crest.primaryColor }}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-y-0 right-0 w-1.5"
+            style={{ backgroundColor: awayClub.crest.primaryColor }}
+            aria-hidden="true"
+          />
+
+          <div className="flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest text-emerald-400">
+            <CompetitionEmblem competitionId={nextFixture.competitionId} size={20} />
+            <span>{homeClub.stadiumName}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate('tactics')}
-            className="rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-200 self-start"
-          >
-            Edit Lineup ({career.tactics.formation})
-          </button>
-        </div>
 
-        {/* Matchup Card */}
-        <section className="rounded-lg border border-slate-800 bg-[#121824] p-6 space-y-6">
-          <div className="grid grid-cols-3 items-center gap-4 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <ClubCrest crest={homeClub.crest} size={64} />
-              <div className="font-display text-2xl font-bold text-white">{homeClub.name}</div>
-              <div className="text-xs text-slate-400">Home · REP {homeClub.reputation}</div>
+          <div className="grid grid-cols-3 items-center gap-3 sm:gap-6 text-center">
+            <div className="flex flex-col items-center gap-2.5">
+              <ClubCrest crest={homeClub.crest} size={68} />
+              <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#F4F5F0] leading-none">
+                {homeClub.name}
+              </div>
+              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                Home · REP {homeClub.reputation}
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <div className="font-display text-4xl font-bold text-slate-500">VS</div>
-              <div className="text-xs text-slate-400">{homeClub.stadiumName}</div>
+            <div className="space-y-2">
+              <div className="ft-chamfer-sm inline-block border border-slate-700/80 bg-[#070B14] px-4 py-1.5 font-display text-3xl sm:text-4xl font-extrabold text-emerald-400">
+                VS
+              </div>
+              <div className="text-[11px] font-mono text-slate-400">
+                {nextFixture.date}
+              </div>
             </div>
 
-            <div className="flex flex-col items-center gap-2">
-              <ClubCrest crest={awayClub.crest} size={64} />
-              <div className="font-display text-2xl font-bold text-white">{awayClub.name}</div>
-              <div className="text-xs text-slate-400">Away · REP {awayClub.reputation}</div>
+            <div className="flex flex-col items-center gap-2.5">
+              <ClubCrest crest={awayClub.crest} size={68} />
+              <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#F4F5F0] leading-none">
+                {awayClub.name}
+              </div>
+              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                Away · REP {awayClub.reputation}
+              </div>
             </div>
           </div>
 
-          <div className="pt-5 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="pt-5 border-t border-slate-800/90 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-400">Simulation Speed:</span>
+              <span className="text-slate-400 font-mono uppercase tracking-wider">Speed:</span>
               {(['Normal', 'Fast', 'Instant'] as SimulationSpeed[]).map((sp) => (
                 <button
                   key={sp}
@@ -297,10 +350,10 @@ export const MatchCenter: React.FC = () => {
                     setSpeed(sp);
                     updateSettings({ simulationSpeed: sp });
                   }}
-                  className={`px-3 py-1.5 rounded border font-medium ${
+                  className={`px-3 py-1.5 rounded border font-semibold ${
                     speed === sp
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
-                      : 'border-slate-700 bg-[#0B0F17] text-slate-300'
+                      ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
+                      : 'border-slate-700 bg-[#070B14] text-slate-300'
                   }`}
                 >
                   {sp}
@@ -308,19 +361,21 @@ export const MatchCenter: React.FC = () => {
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
+                disabled={isBusy}
                 onClick={handleQuickSim}
-                className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white"
+                className="inline-flex items-center gap-2 rounded border border-slate-700 bg-[#0B1220] hover:bg-slate-800 disabled:opacity-50 px-4 py-2.5 text-sm font-semibold text-white"
               >
                 <FastForward className="h-4 w-4 text-slate-300" />
                 <span>Quick Simulate</span>
               </button>
               <button
                 type="button"
+                disabled={isBusy}
                 onClick={handleStartLive}
-                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+                className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white shadow-[0_8px_22px_rgba(16,185,129,0.28)]"
               >
                 <Play className="h-4 w-4 fill-current" />
                 <span>Start Live Match</span>
@@ -330,23 +385,23 @@ export const MatchCenter: React.FC = () => {
         </section>
 
         {/* Starting XI Preview */}
-        <section className="rounded-lg border border-slate-800 bg-[#121824] p-5">
-          <h2 className="font-display text-xl font-bold text-white mb-3">
+        <section className="ft-panel rounded-lg p-5">
+          <h2 className="font-display text-2xl font-bold text-[#F4F5F0] mb-3">
             Selected Starting XI ({career.tactics.formation} · {career.tactics.mentality})
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 text-xs">
             {career.tactics.slots.map((slot) => {
               const p = slot.playerId ? career.players[slot.playerId] : undefined;
               return (
                 <div
                   key={slot.slotIndex}
-                  className="rounded border border-slate-800 bg-[#0B0F17] px-3 py-2 flex items-center justify-between gap-2"
+                  className="ft-panel-inset rounded px-3 py-2 flex items-center justify-between gap-2"
                 >
-                  <span className="truncate text-slate-200">
-                    <span className="font-mono text-slate-400 mr-1.5">{slot.label}</span>
+                  <span className="truncate text-slate-200 font-medium">
+                    <span className="font-mono text-emerald-400 mr-1.5">{slot.label}</span>
                     {p?.fullName ?? 'Empty'}
                   </span>
-                  <span className="font-mono text-emerald-400 font-semibold">
+                  <span className="font-mono text-[#F4F5F0] font-bold">
                     {p?.overallRating ?? 0}
                   </span>
                 </div>
@@ -363,6 +418,7 @@ export const MatchCenter: React.FC = () => {
     const userSide: 'home' | 'away' = session.home.club.id === userClub.id ? 'home' : 'away';
     const userTeam = userSide === 'home' ? session.home : session.away;
     const subsUsed = userSide === 'home' ? session.homeSubsUsed : session.awaySubsUsed;
+    const matchProgressPct = Math.min(100, Math.round((session.minute / 90) * 100));
 
     const handleMentalityChange = (mentality: Mentality) => {
       updateLiveMatchTactics(session, userSide, { ...userTeam.tactics, mentality });
@@ -389,11 +445,22 @@ export const MatchCenter: React.FC = () => {
 
     return (
       <div className="space-y-5">
-        {/* Live Scoreboard */}
-        <section className="rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>{session.home.club.stadiumName}</span>
-            <span className="font-mono text-emerald-400 font-semibold tabular-nums">
+        {/* Live Broadcast Scoreboard */}
+        <section className="ft-broadcast-strip rounded-lg p-4 sm:p-6 space-y-4 relative overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 w-1.5"
+            style={{ backgroundColor: session.home.club.crest.primaryColor }}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-y-0 right-0 w-1.5"
+            style={{ backgroundColor: session.away.club.crest.primaryColor }}
+            aria-hidden="true"
+          />
+
+          <div className="flex items-center justify-between text-xs px-1">
+            <span className="font-mono text-slate-400">{session.home.club.stadiumName}</span>
+            <span className="ft-chamfer-sm bg-emerald-500/15 border border-emerald-400/50 px-3 py-0.5 font-mono text-emerald-300 font-bold tabular-nums">
               {session.phase === 'HALF_TIME'
                 ? 'HALF-TIME'
                 : session.phase === 'FULL_TIME'
@@ -402,28 +469,36 @@ export const MatchCenter: React.FC = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-3 items-center gap-3 text-center">
+          <div className="grid grid-cols-3 items-center gap-3 text-center py-1">
             <div className="flex flex-col sm:flex-row items-center justify-end gap-3">
-              <span className="font-display text-xl sm:text-2xl font-bold text-white">
+              <span className="font-display text-xl sm:text-3xl font-extrabold text-[#F4F5F0]">
                 {session.home.club.name}
               </span>
-              <ClubCrest crest={session.home.club.crest} size={42} />
+              <ClubCrest crest={session.home.club.crest} size={46} />
             </div>
 
-            <div className="font-mono text-4xl sm:text-5xl font-bold text-white tabular-nums">
+            <div className="ft-panel-inset rounded py-2 px-3 inline-block mx-auto font-mono text-4xl sm:text-5xl font-extrabold text-[#F4F5F0] tabular-nums tracking-tight">
               {session.homeScore} - {session.awayScore}
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-start gap-3">
-              <ClubCrest crest={session.away.club.crest} size={42} />
-              <span className="font-display text-xl sm:text-2xl font-bold text-white">
+              <ClubCrest crest={session.away.club.crest} size={46} />
+              <span className="font-display text-xl sm:text-3xl font-extrabold text-[#F4F5F0]">
                 {session.away.club.name}
               </span>
             </div>
           </div>
 
+          {/* Match Clock Progress Bar */}
+          <div className="h-1 w-full bg-[#070B14] rounded-xs overflow-hidden">
+            <div
+              className="h-full bg-emerald-400 transition-all duration-150"
+              style={{ width: `${matchProgressPct}%` }}
+            />
+          </div>
+
           {/* Live Playback Controls */}
-          <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               {session.phase === 'HALF_TIME' ? (
                 <button
@@ -433,7 +508,7 @@ export const MatchCenter: React.FC = () => {
                     setIsPlaying(true);
                     setTickVersion((v) => v + 1);
                   }}
-                  className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white"
+                  className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white"
                 >
                   <Play className="h-3.5 w-3.5 fill-current" />
                   <span>Start Second Half</span>
@@ -441,25 +516,27 @@ export const MatchCenter: React.FC = () => {
               ) : session.phase === 'FULL_TIME' ? (
                 <button
                   type="button"
+                  disabled={isBusy}
                   onClick={() => finishLiveMatch(session)}
-                  className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2 text-xs font-semibold text-white"
+                  className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-2 text-xs font-bold uppercase tracking-wider text-white"
                 >
-                  <span>Finish & View Match Report</span>
+                  <span>Finish &amp; View Match Report</span>
                 </button>
               ) : (
                 <>
                   <button
                     type="button"
                     onClick={() => setIsPlaying(!isPlaying)}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white"
+                    className="ft-chamfer-sm inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white"
                   >
                     {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                     <span>{isPlaying ? 'Pause' : 'Resume'}</span>
                   </button>
                   <button
                     type="button"
+                    disabled={isBusy}
                     onClick={() => finishLiveMatch(session)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-200"
+                    className="inline-flex items-center gap-1.5 rounded border border-slate-700 bg-[#0B1220] hover:bg-slate-800 disabled:opacity-50 px-3.5 py-2 text-xs font-semibold text-slate-200"
                   >
                     <FastForward className="h-3.5 w-3.5" />
                     <span>Sim to Full-Time</span>
@@ -474,10 +551,10 @@ export const MatchCenter: React.FC = () => {
                   key={sp}
                   type="button"
                   onClick={() => setSpeed(sp)}
-                  className={`px-2.5 py-1 rounded border ${
+                  className={`px-2.5 py-1 rounded border font-semibold ${
                     speed === sp
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
-                      : 'border-slate-700 bg-[#0B0F17] text-slate-400'
+                      ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
+                      : 'border-slate-700 bg-[#070B14] text-slate-400'
                   }`}
                 >
                   {sp}
@@ -487,21 +564,25 @@ export const MatchCenter: React.FC = () => {
           </div>
         </section>
 
-        {/* Stats + Commentary + Touchline Adjustments */}
+        {/* Commentary + Momentum Stats + Touchline Console */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Match Commentary Feed */}
-          <div className="lg:col-span-7 rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-3">
-            <h2 className="font-display text-xl font-bold text-white">Live Match Commentary</h2>
+          <div className="lg:col-span-7 ft-panel rounded-lg p-5 space-y-3">
+            <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">
+              Live Match Commentary
+            </h2>
             <div className="h-80 overflow-y-auto divide-y divide-slate-800/70 pr-1 flex flex-col-reverse">
               <div className="divide-y divide-slate-800/70">
                 {[...session.events].reverse().map((ev) => (
                   <div
                     key={ev.id}
-                    className={`py-2.5 flex items-start gap-3 text-xs ${
-                      ev.isGoal ? 'text-emerald-300 font-semibold' : 'text-slate-200'
+                    className={`py-2.5 px-2 flex items-start gap-3 text-xs ${
+                      ev.isGoal
+                        ? 'bg-emerald-500/10 border-l-2 border-l-emerald-400 text-emerald-200 font-semibold'
+                        : 'text-slate-200'
                     }`}
                   >
-                    <span className="font-mono text-slate-400 w-10 shrink-0 tabular-nums">
+                    <span className="font-mono text-emerald-400 font-bold w-11 shrink-0 tabular-nums">
                       {ev.minute}&apos;{ev.addedTime ? `+${ev.addedTime}` : ''}
                     </span>
                     <span className="leading-relaxed">{ev.commentary}</span>
@@ -513,39 +594,76 @@ export const MatchCenter: React.FC = () => {
 
           {/* Live Stats & Touchline Tactics */}
           <div className="lg:col-span-5 space-y-5">
-            <div className="rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-3">
-              <h2 className="font-display text-xl font-bold text-white">Live Statistics</h2>
-              <div className="space-y-2.5 text-xs tabular-nums">
-                {[
-                  ['Possession', `${session.homeStats.possession}%`, `${session.awayStats.possession}%`],
-                  ['Shots', session.homeStats.shots, session.awayStats.shots],
-                  ['On Target', session.homeStats.shotsOnTarget, session.awayStats.shotsOnTarget],
-                  ['xG', session.homeStats.expectedGoals.toFixed(2), session.awayStats.expectedGoals.toFixed(2)],
-                  ['Corners', session.homeStats.corners, session.awayStats.corners],
-                  ['Fouls', session.homeStats.fouls, session.awayStats.fouls],
-                  ['Yellow Cards', session.homeStats.yellowCards, session.awayStats.yellowCards],
-                ].map(([label, hVal, aVal]) => (
-                  <div key={String(label)} className="flex items-center justify-between py-1 border-b border-slate-800/60">
-                    <span className="font-mono font-semibold text-white w-14">{hVal}</span>
-                    <span className="text-slate-400">{label}</span>
-                    <span className="font-mono font-semibold text-white w-14 text-right">{aVal}</span>
+            <div className="ft-panel rounded-lg p-5 space-y-3.5">
+              <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">Live Statistics</h2>
+              <div className="space-y-3">
+                <MomentumComparisonBar
+                  label="Possession"
+                  homeValue={`${session.homeStats.possession}%`}
+                  awayValue={`${session.awayStats.possession}%`}
+                  homeNum={session.homeStats.possession}
+                  awayNum={session.awayStats.possession}
+                  homeColor={session.home.club.crest.primaryColor}
+                  awayColor="#64748B"
+                />
+                <MomentumComparisonBar
+                  label="Shots"
+                  homeValue={session.homeStats.shots}
+                  awayValue={session.awayStats.shots}
+                  homeNum={session.homeStats.shots}
+                  awayNum={session.awayStats.shots}
+                />
+                <MomentumComparisonBar
+                  label="On Target"
+                  homeValue={session.homeStats.shotsOnTarget}
+                  awayValue={session.awayStats.shotsOnTarget}
+                  homeNum={session.homeStats.shotsOnTarget}
+                  awayNum={session.awayStats.shotsOnTarget}
+                />
+                <MomentumComparisonBar
+                  label="xG"
+                  homeValue={session.homeStats.expectedGoals.toFixed(2)}
+                  awayValue={session.awayStats.expectedGoals.toFixed(2)}
+                  homeNum={Math.round(session.homeStats.expectedGoals * 100)}
+                  awayNum={Math.round(session.awayStats.expectedGoals * 100)}
+                />
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-center text-xs font-mono tabular-nums">
+                  <div className="ft-panel-inset rounded p-2">
+                    <div className="text-[10px] text-slate-400">CORNERS</div>
+                    <div className="font-bold text-[#F4F5F0] mt-0.5">
+                      {session.homeStats.corners} - {session.awayStats.corners}
+                    </div>
                   </div>
-                ))}
+                  <div className="ft-panel-inset rounded p-2">
+                    <div className="text-[10px] text-slate-400">FOULS</div>
+                    <div className="font-bold text-[#F4F5F0] mt-0.5">
+                      {session.homeStats.fouls} - {session.awayStats.fouls}
+                    </div>
+                  </div>
+                  <div className="ft-panel-inset rounded p-2">
+                    <div className="text-[10px] text-slate-400">CARDS</div>
+                    <div className="font-bold text-amber-300 mt-0.5">
+                      {session.homeStats.yellowCards} - {session.awayStats.yellowCards}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             {session.phase !== 'FULL_TIME' && (
-              <div className="rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-3">
-                <h2 className="font-display text-xl font-bold text-white">
-                  Touchline Tactics & Subs ({subsUsed}/3)
+              <div className="ft-panel rounded-lg p-5 space-y-3">
+                <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">
+                  Touchline Tactics &amp; Subs ({subsUsed}/3)
                 </h2>
                 <div className="grid grid-cols-2 gap-2.5 text-xs">
                   <div>
-                    <label className="block text-slate-400 mb-1">Mentality</label>
+                    <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
+                      Mentality
+                    </label>
                     <select
                       value={userTeam.tactics.mentality}
                       onChange={(e) => handleMentalityChange(e.target.value as Mentality)}
-                      className="w-full rounded border border-slate-700 bg-[#0B0F17] px-2.5 py-1.5 text-white"
+                      className="w-full rounded border border-slate-700 bg-[#070B14] px-2.5 py-2 text-[#F4F5F0]"
                     >
                       {(['Very Defensive', 'Defensive', 'Balanced', 'Attacking', 'Very Attacking'] as Mentality[]).map(
                         (m) => (
@@ -557,11 +675,13 @@ export const MatchCenter: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-slate-400 mb-1">Pressing</label>
+                    <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
+                      Pressing
+                    </label>
                     <select
                       value={userTeam.tactics.pressing}
                       onChange={(e) => handlePressingChange(e.target.value as PressingIntensity)}
-                      className="w-full rounded border border-slate-700 bg-[#0B0F17] px-2.5 py-1.5 text-white"
+                      className="w-full rounded border border-slate-700 bg-[#070B14] px-2.5 py-2 text-[#F4F5F0]"
                     >
                       {(['Low', 'Medium', 'High', 'Aggressive'] as PressingIntensity[]).map((m) => (
                         <option key={m} value={m}>
@@ -579,7 +699,7 @@ export const MatchCenter: React.FC = () => {
                         value={subOutSlotIdx}
                         onChange={(e) => setSubOutSlotIdx(Number(e.target.value))}
                         aria-label="Player off"
-                        className="rounded border border-slate-700 bg-[#0B0F17] px-2 py-1.5 text-white"
+                        className="rounded border border-slate-700 bg-[#070B14] px-2 py-2 text-[#F4F5F0]"
                       >
                         {userTeam.tactics.slots.map((s) => {
                           const p = s.playerId ? career.players[s.playerId] : null;
@@ -594,7 +714,7 @@ export const MatchCenter: React.FC = () => {
                         value={subInPlayerId}
                         onChange={(e) => setSubInPlayerId(e.target.value)}
                         aria-label="Player on"
-                        className="rounded border border-slate-700 bg-[#0B0F17] px-2 py-1.5 text-white"
+                        className="rounded border border-slate-700 bg-[#070B14] px-2 py-2 text-[#F4F5F0]"
                       >
                         {userTeam.tactics.substituteIds.map((pid) => (
                           <option key={pid} value={pid}>
@@ -606,7 +726,7 @@ export const MatchCenter: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleMakeSub}
-                      className="w-full rounded border border-slate-700 bg-slate-900 hover:bg-slate-800 py-1.5 font-semibold text-white"
+                      className="w-full rounded border border-slate-700 bg-[#0B1220] hover:bg-slate-800 py-2 font-semibold text-[#F4F5F0]"
                     >
                       Confirm Substitution
                     </button>
@@ -630,69 +750,81 @@ export const MatchCenter: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-white">Full-Time Match Report</h1>
-            <p className="text-xs text-slate-400">
-              {career.competitions[fixture.competitionId]?.name} · Matchday {fixture.matchday} ·
-              Attendance {result.attendance.toLocaleString()} · Gate{' '}
-              {formatMoney(result.gateReceipts, settings.currency)}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setCompetitionsTab('standings');
-                navigate('competitions');
-              }}
-              className="rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 px-4 py-2 text-xs font-semibold text-white"
-            >
-              View Standings
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setView('prep');
-                setSession(null);
-                navigate('dashboard');
-              }}
-              className="rounded-md bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white"
-            >
-              Return to Dashboard
-            </button>
-          </div>
-        </div>
+        <GamePageHeader
+          eyebrow={`${career.competitions[fixture.competitionId]?.name ?? 'Matchday'} · Matchday ${fixture.matchday}`}
+          title="Full-Time Match Report"
+          accentColor={userClub.crest.primaryColor}
+          subtitle={`Attendance ${result.attendance.toLocaleString()} · Gate ${formatMoney(result.gateReceipts, settings.currency)}`}
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCompetitionsTab('standings');
+                  navigate('competitions');
+                }}
+                className="rounded border border-slate-700 bg-[#0B1220] hover:bg-slate-800 px-4 py-2 text-xs font-semibold text-white"
+              >
+                View Standings
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setView('prep');
+                  setSession(null);
+                  navigate('dashboard');
+                }}
+                className="ft-chamfer-sm bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white"
+              >
+                Return to Dashboard
+              </button>
+            </div>
+          }
+        />
 
         {/* Score Header */}
-        <section className="rounded-lg border border-slate-800 bg-[#121824] p-6 space-y-5">
+        <section className="ft-broadcast-strip rounded-lg p-6 space-y-5 relative overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 w-1.5"
+            style={{ backgroundColor: homeClub.crest.primaryColor }}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-y-0 right-0 w-1.5"
+            style={{ backgroundColor: awayClub.crest.primaryColor }}
+            aria-hidden="true"
+          />
           <div className="grid grid-cols-3 items-center text-center gap-4">
             <div className="flex flex-col items-center gap-2">
-              <ClubCrest crest={homeClub.crest} size={56} />
-              <span className="font-display text-2xl font-bold text-white">{homeClub.name}</span>
+              <ClubCrest crest={homeClub.crest} size={60} />
+              <span className="font-display text-2xl sm:text-3xl font-extrabold text-[#F4F5F0]">
+                {homeClub.name}
+              </span>
             </div>
-            <div className="font-mono text-5xl font-bold text-white tabular-nums">
+            <div className="ft-panel-inset rounded py-2 px-4 inline-block mx-auto font-mono text-4xl sm:text-5xl font-extrabold text-[#F4F5F0] tabular-nums">
               {result.homeGoals} - {result.awayGoals}
             </div>
             <div className="flex flex-col items-center gap-2">
-              <ClubCrest crest={awayClub.crest} size={56} />
-              <span className="font-display text-2xl font-bold text-white">{awayClub.name}</span>
+              <ClubCrest crest={awayClub.crest} size={60} />
+              <span className="font-display text-2xl sm:text-3xl font-extrabold text-[#F4F5F0]">
+                {awayClub.name}
+              </span>
             </div>
           </div>
 
           {goals.length > 0 && (
-            <div className="pt-4 border-t border-slate-800 flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-slate-300">
+            <div className="pt-4 border-t border-slate-800 flex flex-wrap justify-center gap-x-6 gap-y-1.5 text-xs text-slate-200 font-mono">
               {goals.map((g) => (
                 <span key={g.id}>
-                  {g.minute}&apos; {career.players[g.playerId ?? '']?.fullName} (
-                  {career.clubs[g.clubId]?.shortName})
+                  <span className="text-emerald-400 font-bold">{g.minute}&apos;</span>{' '}
+                  {career.players[g.playerId ?? '']?.fullName} ({career.clubs[g.clubId]?.shortName})
                 </span>
               ))}
             </div>
           )}
 
           {motm && (
-            <div className="text-center text-xs text-emerald-400 flex items-center justify-center gap-1.5">
+            <div className="text-center text-xs text-amber-300 font-semibold flex items-center justify-center gap-1.5">
               <Shield className="h-3.5 w-3.5" />
               <span>Player of the Match: {motm.fullName}</span>
             </div>
@@ -701,35 +833,63 @@ export const MatchCenter: React.FC = () => {
 
         {/* Stats & Timeline */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5 rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-3">
-            <h2 className="font-display text-xl font-bold text-white">Team Match Statistics</h2>
-            <div className="space-y-2.5 text-xs tabular-nums">
-              {[
-                ['Possession', `${result.homeStats.possession}%`, `${result.awayStats.possession}%`],
-                ['Shots', result.homeStats.shots, result.awayStats.shots],
-                ['Shots on Target', result.homeStats.shotsOnTarget, result.awayStats.shotsOnTarget],
-                ['Expected Goals (xG)', result.homeStats.expectedGoals.toFixed(2), result.awayStats.expectedGoals.toFixed(2)],
-                ['Passes Completed', result.homeStats.passesCompleted, result.awayStats.passesCompleted],
-                ['Corners', result.homeStats.corners, result.awayStats.corners],
-                ['Fouls', result.homeStats.fouls, result.awayStats.fouls],
-                ['Yellow Cards', result.homeStats.yellowCards, result.awayStats.yellowCards],
-              ].map(([label, h, a]) => (
-                <div key={String(label)} className="flex justify-between py-1.5 border-b border-slate-800/60">
-                  <span className="font-mono font-semibold text-white w-16">{h}</span>
-                  <span className="text-slate-400">{label}</span>
-                  <span className="font-mono font-semibold text-white w-16 text-right">{a}</span>
-                </div>
-              ))}
+          <div className="lg:col-span-5 ft-panel rounded-lg p-5 space-y-3.5">
+            <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">
+              Team Match Statistics
+            </h2>
+            <div className="space-y-3">
+              <MomentumComparisonBar
+                label="Possession"
+                homeValue={`${result.homeStats.possession}%`}
+                awayValue={`${result.awayStats.possession}%`}
+                homeNum={result.homeStats.possession}
+                awayNum={result.awayStats.possession}
+              />
+              <MomentumComparisonBar
+                label="Shots"
+                homeValue={result.homeStats.shots}
+                awayValue={result.awayStats.shots}
+                homeNum={result.homeStats.shots}
+                awayNum={result.awayStats.shots}
+              />
+              <MomentumComparisonBar
+                label="Shots on Target"
+                homeValue={result.homeStats.shotsOnTarget}
+                awayValue={result.awayStats.shotsOnTarget}
+                homeNum={result.homeStats.shotsOnTarget}
+                awayNum={result.awayStats.shotsOnTarget}
+              />
+              <MomentumComparisonBar
+                label="Expected Goals (xG)"
+                homeValue={result.homeStats.expectedGoals.toFixed(2)}
+                awayValue={result.awayStats.expectedGoals.toFixed(2)}
+                homeNum={Math.round(result.homeStats.expectedGoals * 100)}
+                awayNum={Math.round(result.awayStats.expectedGoals * 100)}
+              />
+              <MomentumComparisonBar
+                label="Passes Completed"
+                homeValue={result.homeStats.passesCompleted}
+                awayValue={result.awayStats.passesCompleted}
+                homeNum={result.homeStats.passesCompleted}
+                awayNum={result.awayStats.passesCompleted}
+              />
+              <MomentumComparisonBar
+                label="Corners"
+                homeValue={result.homeStats.corners}
+                awayValue={result.awayStats.corners}
+                homeNum={result.homeStats.corners}
+                awayNum={result.awayStats.corners}
+              />
             </div>
           </div>
 
-          <div className="lg:col-span-7 rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-3">
+          <div className="lg:col-span-7 ft-panel rounded-lg p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl font-bold text-white">Key Match Events</h2>
+              <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">Key Match Events</h2>
               <button
                 type="button"
                 onClick={() => setView('prep')}
-                className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300"
               >
                 <RefreshCw className="h-3 w-3" />
                 <span>Next Match Prep</span>
@@ -738,7 +898,9 @@ export const MatchCenter: React.FC = () => {
             <div className="max-h-72 overflow-y-auto divide-y divide-slate-800/60 text-xs">
               {result.events.map((ev) => (
                 <div key={ev.id} className="py-2 flex gap-3">
-                  <span className="font-mono text-slate-400 w-10 shrink-0">{ev.minute}&apos;</span>
+                  <span className="font-mono text-emerald-400 font-bold w-10 shrink-0">
+                    {ev.minute}&apos;
+                  </span>
                   <span className={ev.isGoal ? 'text-emerald-300 font-semibold' : 'text-slate-300'}>
                     {ev.commentary}
                   </span>

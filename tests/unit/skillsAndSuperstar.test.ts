@@ -4,8 +4,8 @@ import {
   createAcademyPlayer,
   createNewCareer,
   getAcademyAttributeCap,
+  unlockOrRerollSkill2,
   unlockPlayerSuperstar,
-  updatePlayerSkills,
 } from '../../src/engine/careerEngine';
 import {
   createLiveMatchSession,
@@ -13,18 +13,20 @@ import {
   simulateMatchQuick,
   stepLiveMatchMinute,
 } from '../../src/engine/matchEngine';
-import { calculateOverallRating } from '../../src/engine/ratings';
+import { ALL_POSITIONS } from '../../src/engine/ratings';
 import {
   checkSuperstarUnlockEligibility,
+  getEligibleDevelopedSkills,
+  isSkillCompatibleWithPosition,
   POSITION_SKILL_RECOMMENDATIONS,
   SKILL_CATALOGUE,
+  SKILL_MAP,
   validateSkillPair,
 } from '../../src/engine/skills';
 import { buildDefaultTactics } from '../../src/engine/tacticsEngine';
-import { ALL_POSITIONS } from '../../src/engine/ratings';
 import { Fixture, Player } from '../../src/types';
 
-describe('25-Skill Playstyle System & Superstar Balance', () => {
+describe('25-Skill Playstyle System, Universal Skill Tokens & Superstar Balance', () => {
   it('defines exactly 25 unique playstyle skills and valid recommendations for all 8 positions', () => {
     expect(SKILL_CATALOGUE).toHaveLength(25);
     const ids = new Set(SKILL_CATALOGUE.map((s) => s.id));
@@ -37,11 +39,19 @@ describe('25-Skill Playstyle System & Superstar Balance', () => {
         expect(validateSkillPair(s1, s2).valid).toBe(true);
         expect(s1).not.toBe(s2);
       }
+      expect(getEligibleDevelopedSkills(pos, null, null).length).toBeGreaterThanOrEqual(7);
     }
   });
 
-  it('prevents duplicate skill selection and preserves base OVR when changing skills', () => {
-    const career = createNewCareer({
+  it('initializes Permanent Natural Skill (skill1), locked Developed Skill (skill2: null), and handles unlock + unlimited rerolls deterministically', () => {
+    const careerA = createNewCareer({
+      seasonId: '2014/15',
+      clubId: 'chelsea',
+      managerName: 'Alex Reid',
+      managerNationality: 'England',
+      philosophy: 'Balanced',
+    });
+    const careerB = createNewCareer({
       seasonId: '2014/15',
       clubId: 'chelsea',
       managerName: 'Alex Reid',
@@ -50,20 +60,77 @@ describe('25-Skill Playstyle System & Superstar Balance', () => {
     });
 
     const hazardId = 'eden_hazard';
-    const beforeOvr = career.players[hazardId].overallRating;
+    const hazard = careerA.players[hazardId];
+    const courtoisId = 'thibaut_courtois';
+    const courtois = careerA.players[courtoisId];
 
-    const dup = updatePlayerSkills(career, hazardId, 'dribbling', 'dribbling');
-    expect(dup.ok).toBe(false);
-    expect(dup.error).toContain('cannot be the same');
+    // Natural skill assigned (preserving historical assignment) & skill2 locked initially
+    expect(hazard.skill1).toBe('dribbling');
+    expect(hazard.skill2).toBeNull();
+    expect(courtois.skill1).toBeTruthy();
+    expect(courtois.skill2).toBeNull();
+    expect(careerA.universalSkillTokens).toBe(3);
 
-    const ok = updatePlayerSkills(career, hazardId, 'creativity', 'free_kicks');
-    expect(ok.ok).toBe(true);
-    expect(ok.nextState.players[hazardId].skill1).toBe('creativity');
-    expect(ok.nextState.players[hazardId].skill2).toBe('free_kicks');
-    expect(ok.nextState.players[hazardId].overallRating).toBe(beforeOvr);
+    const beforeOvr = hazard.overallRating;
+
+    // 1. Deterministic unlock on both identical careers yields exact same skill2
+    const unlockA = unlockOrRerollSkill2(careerA, hazardId);
+    const unlockB = unlockOrRerollSkill2(careerB, hazardId);
+    expect(unlockA.ok).toBe(true);
+    expect(unlockB.ok).toBe(true);
+    expect(unlockA.rolledSkill).toBe(unlockB.rolledSkill);
+    expect(unlockA.rolledSkill).not.toBe(hazard.skill1);
+    expect(unlockA.nextState.universalSkillTokens).toBe(2);
+    expect(unlockA.nextState.players[hazardId].skill1).toBe('dribbling'); // Permanent
+    expect(unlockA.nextState.players[hazardId].overallRating).toBe(beforeOvr); // Base OVR untouched
+
+    // 2. Multiple consecutive unlimited rerolls (give 6 tokens and run 6 consecutive rerolls)
+    let state = { ...unlockA.nextState, universalSkillTokens: 6 };
+    let prevSkill2 = state.players[hazardId].skill2!;
+    for (let i = 0; i < 6; i += 1) {
+      const tokensBefore = state.universalSkillTokens;
+      const reroll = unlockOrRerollSkill2(state, hazardId);
+      expect(reroll.ok).toBe(true);
+      expect(reroll.rolledSkill).toBeTruthy();
+      expect(reroll.rolledSkill).not.toBe(state.players[hazardId].skill1);
+      expect(reroll.rolledSkill).not.toBe(prevSkill2);
+      expect(
+        isSkillCompatibleWithPosition(
+          reroll.rolledSkill!,
+          state.players[hazardId].primaryPosition
+        )
+      ).toBe(true);
+      expect(SKILL_MAP[reroll.rolledSkill!].category).not.toBe('Goalkeeping');
+      expect(reroll.nextState.universalSkillTokens).toBe(tokensBefore - 1);
+      expect(reroll.nextState.players[hazardId].skill1).toBe('dribbling');
+      expect(reroll.nextState.players[hazardId].overallRating).toBe(beforeOvr);
+      state = reroll.nextState;
+      prevSkill2 = reroll.rolledSkill!;
+    }
+    expect(state.universalSkillTokens).toBe(0);
+
+    // 3. Insufficient tokens (0 tokens): must fail cleanly without mutating skill2 or tokens
+    const noTokensRes = unlockOrRerollSkill2(state, hazardId);
+    expect(noTokensRes.ok).toBe(false);
+    expect(noTokensRes.error).toContain('Insufficient Universal Skill Tokens');
+    expect(noTokensRes.nextState.universalSkillTokens).toBe(0);
+    expect(noTokensRes.nextState.players[hazardId].skill2).toBe(prevSkill2);
+
+    // 4. Goalkeeper position compatibility: strictly GK-compatible skills, never outfield-only skills
+    let gkState = { ...careerA, universalSkillTokens: 5 };
+    for (let i = 0; i < 5; i += 1) {
+      const gkRoll = unlockOrRerollSkill2(gkState, courtoisId);
+      expect(gkRoll.ok).toBe(true);
+      expect(
+        SKILL_MAP[gkRoll.rolledSkill!].recommendedPositions.includes('Goalkeeper')
+      ).toBe(true);
+      expect(gkRoll.rolledSkill).not.toBe(gkState.players[courtoisId].skill1);
+      expect(gkRoll.rolledSkill).not.toBe(gkState.players[courtoisId].skill2);
+      gkState = gkRoll.nextState;
+    }
   });
 
-  it('enforces Academy attribute caps and career-only Superstar unlock rules', () => {
+  it('enforces Academy attribute caps, automatic Natural Skill + Token award, and career-only Superstar unlock rules', () => {
     let career = createNewCareer({
       seasonId: '2015/16',
       clubId: 'arsenal',
@@ -72,6 +139,7 @@ describe('25-Skill Playstyle System & Superstar Balance', () => {
       philosophy: 'Possession',
     });
 
+    const tokensBeforeAcad = career.universalSkillTokens;
     const club = career.clubs['arsenal'];
     const tierCap = getAcademyAttributeCap(club.facilities.youthAcademy);
 
@@ -109,8 +177,6 @@ describe('25-Skill Playstyle System & Superstar Balance', () => {
         leadership: 99,
         workRate: 99,
       },
-      skill1: 'passing',
-      skill2: 'creativity',
       grantSuperstar: false,
     });
 
@@ -118,8 +184,12 @@ describe('25-Skill Playstyle System & Superstar Balance', () => {
     expect(created.player).toBeDefined();
     expect(created.player!.technicalAttributes.passing).toBeLessThanOrEqual(tierCap);
     expect(created.player!.isCustomAcademyPlayer).toBe(true);
-    expect(created.player!.skill1).toBe('passing');
-    expect(created.player!.skill2).toBe('creativity');
+    expect(created.player!.skill1).toBeTruthy();
+    expect(
+      isSkillCompatibleWithPosition(created.player!.skill1!, 'Central Midfielder')
+    ).toBe(true);
+    expect(created.player!.skill2).toBeNull();
+    expect(created.nextState.universalSkillTokens).toBe(tokensBeforeAcad + 1);
 
     career = created.nextState;
     // Superstar unlock requires Tier 3+ facility; verify west_ham (Tier < 3) is blocked

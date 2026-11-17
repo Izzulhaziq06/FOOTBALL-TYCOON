@@ -427,6 +427,9 @@ export interface CareerState {
   trainingReports: TrainingReport[];
   objectives: ManagerObjective[];
   seasonHistory: SeasonArchive[];
+  universalSkillTokens: number;
+  claimedSkillTokenRewards: string[];
+  skillRollCount?: number;
   seedCounter: number;
 }
 

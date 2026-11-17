@@ -55,17 +55,40 @@ test.describe('FOOTBALL TYCOON Full Career Journey', () => {
     await expect(page.getByRole('heading', { name: 'Squad Management' })).toBeVisible();
     await assertNoOverflow();
 
-    // 8. Open player profile & customize Blue Skill 1 and Purple Skill 2
+    // 8. Open player profile & verify Permanent Natural Skill + Token Unlock + Reroll Confirmation
     await page.getByText('Eden Hazard').first().click();
     await expect(page.getByRole('heading', { name: 'Eden Hazard' })).toBeVisible();
-    await page.getByLabel('Select Skill 1 (Blue)').selectOption('creativity');
-    await page.getByLabel('Select Skill 2 (Purple)').selectOption('free_kicks');
-    await expect(
-      page.getByLabel('Select Skill 2 (Purple)').locator('option[value="creativity"]')
-    ).toBeDisabled();
+    await expect(page.getByTestId('natural-skill-card')).toContainText('Permanent');
+    await expect(page.getByTestId('natural-skill-card')).toContainText('Dribbling');
+    await expect(page.getByTestId('developed-skill-card')).toContainText('Locked');
+    await expect(page.getByTestId('universal-token-balance')).toContainText('3 Universal Skill Tokens');
+
+    // Unlock Developed Skill (3 -> 2 tokens)
+    await page.getByRole('button', { name: /Unlock Developed Skill \(1 Token\)/i }).click();
+    await expect(page.getByTestId('universal-token-balance')).toContainText('2 Universal Skill Tokens');
+    await expect(page.getByTestId('developed-skill-card')).not.toContainText('Locked');
+    const unlockedSkillHeading = (await page.getByTestId('developed-skill-card').locator('.font-display').textContent())?.trim() ?? '';
+    expect(unlockedSkillHeading.length).toBeGreaterThan(0);
+
+    // Reroll Developed Skill -> Cancel confirmation -> must NOT deduct token or alter skill
+    await page.getByRole('button', { name: /Reroll Developed Skill \(1 Token\)/i }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog')).toContainText(unlockedSkillHeading);
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByTestId('universal-token-balance')).toContainText('2 Universal Skill Tokens');
+    await expect(page.getByTestId('developed-skill-card')).toContainText(unlockedSkillHeading);
+
+    // Reroll Developed Skill -> Confirm -> deducts 1 token (2 -> 1) and replaces with distinct skill
+    await page.getByRole('button', { name: /Reroll Developed Skill \(1 Token\)/i }).click();
+    await page.getByRole('dialog').getByRole('button', { name: /Confirm Reroll \(1 Token\)/i }).click();
+    await expect(page.getByTestId('universal-token-balance')).toContainText('1 Universal Skill Token');
+    const rerolledSkillHeading = (await page.getByTestId('developed-skill-card').locator('.font-display').textContent())?.trim() ?? '';
+    expect(rerolledSkillHeading).not.toBe(unlockedSkillHeading);
+    expect(rerolledSkillHeading).not.toBe('Dribbling');
     await assertNoOverflow();
 
-    // 8b. Visit Club -> Youth Academy and promote an original Academy graduate
+    // 8b. Visit Club -> Youth Academy and promote an original Academy graduate (auto Natural Skill + +1 Token)
     if (isMobile) {
       await page.getByRole('button', { name: 'Toggle menu' }).click();
       await page.getByRole('button', { name: 'Club', exact: true }).click();
@@ -74,10 +97,13 @@ test.describe('FOOTBALL TYCOON Full Career Journey', () => {
     }
     await page.getByRole('button', { name: 'Youth Academy' }).click();
     await page.locator('#acad-name').fill('Marcus Sterling-Vale');
-    await page.getByLabel('Academy Skill 1 (Blue)').selectOption('passing');
-    await page.getByLabel('Academy Skill 2 (Purple)').selectOption('intelligence');
+    await expect(page.getByLabel('Academy Skill 1 (Blue)')).toHaveCount(0);
+    await expect(page.getByLabel('Academy Skill 2 (Purple)')).toHaveCount(0);
     await page.getByRole('button', { name: /Promote to First Team/i }).click();
     await expect(page.getByRole('heading', { name: 'Marcus Sterling-Vale' })).toBeVisible();
+    await expect(page.getByTestId('natural-skill-card')).toContainText('Permanent');
+    await expect(page.getByTestId('developed-skill-card')).toContainText('Locked');
+    await expect(page.getByTestId('universal-token-balance')).toContainText('2 Universal Skill Tokens');
     await assertNoOverflow();
 
     // 9. Change formation & 10. Save tactics
@@ -170,8 +196,9 @@ test.describe('FOOTBALL TYCOON Full Career Journey', () => {
     }
     await expect(page.getByText('Marcus Sterling-Vale').first()).toBeVisible();
     await page.getByText('Eden Hazard').first().click();
-    await expect(page.getByLabel('Select Skill 1 (Blue)')).toHaveValue('creativity');
-    await expect(page.getByLabel('Select Skill 2 (Purple)')).toHaveValue('free_kicks');
+    await expect(page.getByTestId('natural-skill-card')).toContainText('Dribbling');
+    await expect(page.getByTestId('developed-skill-card')).toContainText(rerolledSkillHeading);
+    await expect(page.getByTestId('universal-token-balance')).toContainText('3 Universal Skill Tokens');
 
     const layoutMetrics = await page.evaluate(() => {
       const overflow = document.documentElement.scrollWidth - window.innerWidth;

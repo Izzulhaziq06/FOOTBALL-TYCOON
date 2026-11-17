@@ -9,9 +9,12 @@ import {
   submitWageOffer,
   TransferNegotiationSession,
 } from '../engine/transferEngine';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useCareerStore } from '../store/careerStore';
 import { useUiStore } from '../store/uiStore';
 import { Player, Position } from '../types';
+import { ClubCrest } from '../components/shared/ClubCrest';
+import { GamePageHeader, OvrBadge } from '../components/shared/GamePrimitives';
 import { PlayerAvatar } from '../components/shared/PlayerAvatar';
 import { SkillSlotTags, SuperstarStar } from '../components/shared/SkillBadges';
 import { formatMoney, formatMoneyExact } from '../utils/format';
@@ -21,6 +24,7 @@ type TransferTab = 'market' | 'history';
 export const Transfers: React.FC = () => {
   const { career, settings, completeTransfer } = useCareerStore();
   const { openPlayerProfile, pushToast } = useUiStore();
+  const isDesktop = useMediaQuery('(min-width: 768px)');
 
   const [tab, setTab] = useState<TransferTab>('market');
   const [query, setQuery] = useState('');
@@ -130,44 +134,54 @@ export const Transfers: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-white">Transfer Market</h1>
-          <p className="text-xs text-slate-400 tabular-nums">
-            Window: <span className={career.transferWindowOpen ? 'text-emerald-400' : 'text-amber-400'}>
+      <GamePageHeader
+        eyebrow={`${userClub.name} · Recruitment & Scouting Desk`}
+        title="Transfer Market"
+        accentColor={userClub.crest.primaryColor}
+        subtitle={
+          <span className="tabular-nums">
+            Window:{' '}
+            <span className={career.transferWindowOpen ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
               {career.transferWindowOpen ? `Open (${career.transferWindowLabel})` : 'Closed'}
             </span>{' '}
-            · Transfer Budget: <span className="font-mono text-white">{formatMoney(userClub.transferBudget, settings.currency)}</span>{' '}
-            · Wage Cap Headroom: <span className="font-mono text-white">{formatMoney(Math.max(0, userClub.wageBudget - weeklyWages), settings.currency)}/wk</span>
-          </p>
-        </div>
-
-        <div className="flex gap-1 p-1 rounded-md border border-slate-800 bg-[#121824]">
-          <button
-            type="button"
-            onClick={() => setTab('market')}
-            className={`px-3.5 py-1.5 rounded text-xs font-semibold ${
-              tab === 'market' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            Scout Players
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('history')}
-            className={`px-3.5 py-1.5 rounded text-xs font-semibold ${
-              tab === 'history' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            Transfer History ({career.transfers.length})
-          </button>
-        </div>
-      </div>
+            · Transfer Budget:{' '}
+            <span className="font-mono text-[#F4F5F0] font-semibold">
+              {formatMoney(userClub.transferBudget, settings.currency)}
+            </span>{' '}
+            · Wage Headroom:{' '}
+            <span className="font-mono text-[#F4F5F0] font-semibold">
+              {formatMoney(Math.max(0, userClub.wageBudget - weeklyWages), settings.currency)}/wk
+            </span>
+          </span>
+        }
+        actions={
+          <div className="flex gap-1 p-1 rounded border border-slate-800 bg-[#080D18]">
+            <button
+              type="button"
+              onClick={() => setTab('market')}
+              className={`px-3.5 py-1.5 rounded text-xs font-semibold ${
+                tab === 'market' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Scout Players
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('history')}
+              className={`px-3.5 py-1.5 rounded text-xs font-semibold ${
+                tab === 'history' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Transfer History ({career.transfers.length})
+            </button>
+          </div>
+        }
+      />
 
       {tab === 'market' && (
         <>
           {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 rounded-lg border border-slate-800 bg-[#121824] p-4">
+          <div className="ft-panel rounded-lg p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             <div className="relative lg:col-span-2">
               <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -175,7 +189,7 @@ export const Transfers: React.FC = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search player name or country..."
-                className="w-full rounded-md border border-slate-700 bg-[#0B0F17] pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded border border-slate-700/80 bg-[#070B14] pl-9 pr-3 py-2 text-sm text-[#F4F5F0] placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none min-h-[42px]"
               />
             </div>
 
@@ -183,7 +197,7 @@ export const Transfers: React.FC = () => {
               value={position}
               onChange={(e) => setPosition(e.target.value as Position | 'All')}
               aria-label="Filter position"
-              className="rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 text-sm text-white"
+              className="rounded border border-slate-700/80 bg-[#070B14] px-3 py-2 text-sm text-[#F4F5F0] min-h-[42px]"
             >
               <option value="All">All Positions</option>
               {ALL_POSITIONS.map((p) => (
@@ -197,7 +211,7 @@ export const Transfers: React.FC = () => {
               value={clubFilter}
               onChange={(e) => setClubFilter(e.target.value)}
               aria-label="Filter club"
-              className="rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 text-sm text-white"
+              className="rounded border border-slate-700/80 bg-[#070B14] px-3 py-2 text-sm text-[#F4F5F0] min-h-[42px]"
             >
               <option value="All">All Clubs</option>
               {sortedClubs.map((c) => (
@@ -211,7 +225,7 @@ export const Transfers: React.FC = () => {
               value={minOverall}
               onChange={(e) => setMinOverall(Number(e.target.value))}
               aria-label="Minimum overall"
-              className="rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 text-sm text-white"
+              className="rounded border border-slate-700/80 bg-[#070B14] px-3 py-2 text-sm text-[#F4F5F0] min-h-[42px]"
             >
               <option value={60}>Min OVR 60+</option>
               <option value={75}>Min OVR 75+</option>
@@ -223,7 +237,7 @@ export const Transfers: React.FC = () => {
               value={maxAge}
               onChange={(e) => setMaxAge(Number(e.target.value))}
               aria-label="Maximum age"
-              className="rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 text-sm text-white"
+              className="rounded border border-slate-700/80 bg-[#070B14] px-3 py-2 text-sm text-[#F4F5F0] min-h-[42px]"
             >
               <option value={38}>Max Age: Any</option>
               <option value={23}>U23 Prospects</option>
@@ -232,8 +246,8 @@ export const Transfers: React.FC = () => {
             </select>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 px-1">
-            <label className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-5 text-xs text-slate-300 px-1 font-mono">
+            <label className="flex items-center gap-2.5">
               <span>Min Potential: {minPotential}</span>
               <input
                 type="range"
@@ -244,7 +258,7 @@ export const Transfers: React.FC = () => {
                 className="accent-emerald-500"
               />
             </label>
-            <label className="flex items-center gap-2">
+            <label className="flex items-center gap-2.5">
               <span>Max Value: €{maxValueMillions}M</span>
               <input
                 type="range"
@@ -258,11 +272,76 @@ export const Transfers: React.FC = () => {
             </label>
           </div>
 
-          {/* Results Table */}
-          <div className="rounded-lg border border-slate-800 bg-[#121824] overflow-hidden">
+          {/* Mobile Scouting Cards (< md) */}
+          {!isDesktop && (
+            <div className="space-y-2.5">
+            {results.map((p) => {
+              const club = career.clubs[p.clubId];
+              return (
+                <div key={p.id} className="ft-panel rounded-lg p-3.5 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openPlayerProfile(p.id, 'transfers')}
+                      className="flex items-center gap-3 text-left min-w-0 flex-1"
+                    >
+                      <PlayerAvatar
+                        playerId={p.id}
+                        fullName={p.fullName}
+                        primaryColor={club?.crest.primaryColor}
+                        size={42}
+                      />
+                      <div className="min-w-0 space-y-1">
+                        <div className="font-semibold text-sm text-[#F4F5F0] flex items-center gap-1.5">
+                          <span className="truncate">{p.fullName}</span>
+                          <SuperstarStar isSuperstar={p.isSuperstar} />
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate">
+                          {POSITION_CODES[p.primaryPosition]} · {club?.name} · Age {p.age}
+                        </div>
+                        <SkillSlotTags player={p} compact />
+                      </div>
+                    </button>
+                    <OvrBadge rating={p.overallRating} size="sm" />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                    <div className="font-mono text-xs text-slate-300 tabular-nums">
+                      Value <span className="text-[#F4F5F0] font-bold">{formatMoney(p.marketValue, settings.currency)}</span> · POT {p.potential}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => beginNegotiation(p, 'permanent')}
+                        className="rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white min-h-[36px]"
+                      >
+                        Bid
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => beginNegotiation(p, 'loan')}
+                        className="rounded border border-slate-700 bg-[#080D18] hover:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 min-h-[36px]"
+                      >
+                        Loan
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {results.length === 0 && (
+              <div className="ft-panel rounded-lg p-8 text-center text-sm text-slate-400">
+                No players match your scouting filters.
+              </div>
+            )}
+            </div>
+          )}
+
+          {/* Desktop Results Table (md+) */}
+          {isDesktop && (
+            <div className="ft-panel rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-800 bg-[#0E1420] text-xs text-slate-400">
+                <thead className="border-b border-slate-800 bg-[#080D18] text-[11px] font-mono uppercase tracking-wider text-slate-400">
                   <tr>
                     <th className="py-3 pl-4 pr-3">Player</th>
                     <th className="py-3 px-3">Club</th>
@@ -278,21 +357,21 @@ export const Transfers: React.FC = () => {
                   {results.map((p) => {
                     const club = career.clubs[p.clubId];
                     return (
-                      <tr key={p.id} className="hover:bg-slate-800/40">
+                      <tr key={p.id} className="hover:bg-white/[0.04]">
                         <td className="py-2.5 pl-4 pr-3">
                           <button
                             type="button"
                             onClick={() => openPlayerProfile(p.id, 'transfers')}
-                            className="flex items-center gap-3 text-left hover:text-emerald-300 min-w-[180px]"
+                            className="flex items-center gap-3 text-left hover:text-emerald-300 min-w-[190px]"
                           >
                             <PlayerAvatar
                               playerId={p.id}
                               fullName={p.fullName}
                               primaryColor={club?.crest.primaryColor}
-                              size={32}
+                              size={36}
                             />
                             <div className="space-y-1">
-                              <div className="font-medium text-white flex items-center gap-1.5">
+                              <div className="font-semibold text-[#F4F5F0] flex items-center gap-1.5">
                                 <span>{p.fullName}</span>
                                 <SuperstarStar isSuperstar={p.isSuperstar} />
                               </div>
@@ -301,13 +380,18 @@ export const Transfers: React.FC = () => {
                             </div>
                           </button>
                         </td>
-                        <td className="py-2.5 px-3 text-xs text-slate-300">{club?.name}</td>
-                        <td className="py-2.5 px-3 font-mono text-xs text-slate-300">
+                        <td className="py-2.5 px-3 text-xs text-slate-300">
+                          <div className="flex items-center gap-2">
+                            {club && <ClubCrest crest={club.crest} size={20} />}
+                            <span>{club?.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-xs font-bold text-slate-200">
                           {POSITION_CODES[p.primaryPosition]}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono text-slate-300">{p.age}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
-                          {p.overallRating}
+                        <td className="py-2.5 px-3 text-right">
+                          <OvrBadge rating={p.overallRating} size="sm" />
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono text-slate-300">
                           {p.potential}
@@ -320,14 +404,14 @@ export const Transfers: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => beginNegotiation(p, 'permanent')}
-                              className="rounded bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white"
+                              className="rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white"
                             >
                               Bid
                             </button>
                             <button
                               type="button"
                               onClick={() => beginNegotiation(p, 'loan')}
-                              className="rounded border border-slate-700 bg-slate-900 hover:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200"
+                              className="rounded border border-slate-700 bg-[#080D18] hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200"
                             >
                               Loan
                             </button>
@@ -344,15 +428,16 @@ export const Transfers: React.FC = () => {
                 No players match your scouting filters.
               </div>
             )}
-          </div>
+            </div>
+          )}
         </>
       )}
 
       {tab === 'history' && (
-        <div className="rounded-lg border border-slate-800 bg-[#121824] overflow-hidden">
+        <div className="ft-panel rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-800 bg-[#0E1420] text-xs text-slate-400">
+              <thead className="border-b border-slate-800 bg-[#080D18] text-[11px] font-mono uppercase tracking-wider text-slate-400">
                 <tr>
                   <th className="py-3 pl-4 pr-3">Player</th>
                   <th className="py-3 px-3">From</th>
@@ -365,19 +450,19 @@ export const Transfers: React.FC = () => {
               <tbody className="divide-y divide-slate-800/70 tabular-nums">
                 {career.transfers.map((tr) => (
                   <tr key={tr.id}>
-                    <td className="py-2.5 pl-4 pr-3 font-medium text-white">
+                    <td className="py-2.5 pl-4 pr-3 font-semibold text-[#F4F5F0]">
                       {tr.playerName}
                       {tr.isHistoricalSeed && (
-                        <span className="ml-2 text-[11px] text-slate-400">(Historical)</span>
+                        <span className="ml-2 text-[11px] font-normal text-slate-400">(Historical)</span>
                       )}
                     </td>
                     <td className="py-2.5 px-3 text-slate-300">{tr.fromClubName}</td>
                     <td className="py-2.5 px-3 text-slate-300">{tr.toClubName}</td>
                     <td className="py-2.5 px-3 text-xs capitalize text-slate-300">{tr.type}</td>
-                    <td className="py-2.5 px-3 text-xs text-slate-400">
+                    <td className="py-2.5 px-3 text-xs font-mono text-slate-400">
                       {tr.seasonId} · {tr.transferWindow}
                     </td>
-                    <td className="py-2.5 pl-3 pr-4 text-right font-mono text-emerald-400">
+                    <td className="py-2.5 pl-3 pr-4 text-right font-mono font-bold text-emerald-400">
                       {formatMoney(tr.fee, settings.currency)}
                     </td>
                   </tr>
@@ -388,50 +473,61 @@ export const Transfers: React.FC = () => {
         </div>
       )}
 
-      {/* Transfer Negotiation Modal */}
+      {/* Executive Transfer Room Modal */}
       {negotiation && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#04070D]/80 backdrop-blur-xs p-4"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-lg rounded-lg border border-slate-800 bg-[#121824] p-6 space-y-5 shadow-2xl">
+          <div className="ft-panel w-full max-w-lg rounded-lg p-6 space-y-5 relative overflow-hidden">
+            <div className="absolute top-0 inset-x-0 h-1 bg-emerald-500" aria-hidden="true" />
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs text-emerald-400 font-medium capitalize">
-                  {negotiation.type} Transfer Negotiation
-                </div>
-                <h2 className="font-display text-2xl font-bold text-white">
-                  {career.players[negotiation.playerId]?.fullName}
-                </h2>
-                <div className="text-xs text-slate-400">
-                  From {career.clubs[negotiation.sellingClubId]?.name} · Valuation{' '}
-                  {formatMoney(
-                    career.players[negotiation.playerId]?.marketValue ?? 0,
-                    settings.currency
-                  )}
+              <div className="flex items-center gap-3.5 min-w-0">
+                <PlayerAvatar
+                  playerId={negotiation.playerId}
+                  fullName={career.players[negotiation.playerId]?.fullName ?? 'Player'}
+                  primaryColor={career.clubs[negotiation.sellingClubId]?.crest.primaryColor}
+                  size={52}
+                />
+                <div className="min-w-0">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-semibold">
+                    {negotiation.type} Transfer Negotiation
+                  </div>
+                  <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-[#F4F5F0] truncate">
+                    {career.players[negotiation.playerId]?.fullName}
+                  </h2>
+                  <div className="text-xs text-slate-400">
+                    From {career.clubs[negotiation.sellingClubId]?.name} · Valuation{' '}
+                    {formatMoney(
+                      career.players[negotiation.playerId]?.marketValue ?? 0,
+                      settings.currency
+                    )}
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setNegotiation(null)}
                 aria-label="Close negotiation"
-                className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="rounded-md border border-slate-800 bg-[#0B0F17] p-4 space-y-1.5">
-              <div className="text-xs font-semibold text-white">{negotiation.statusMessage}</div>
-              <p className="text-xs text-slate-300">{negotiation.aiFeedback}</p>
+            <div className="ft-panel-inset rounded p-4 space-y-1.5">
+              <div className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                {negotiation.statusMessage}
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">{negotiation.aiFeedback}</p>
             </div>
 
             {negotiation.stage === 'fee' && (
               <div className="space-y-4">
                 <div className="flex justify-between text-xs text-slate-400">
                   <span>Club Asking Price</span>
-                  <span className="font-mono text-white font-semibold">
+                  <span className="font-mono text-[#F4F5F0] font-bold">
                     {formatMoneyExact(negotiation.askingFee, settings.currency)}
                   </span>
                 </div>
@@ -445,21 +541,21 @@ export const Transfers: React.FC = () => {
                     min={100000}
                     value={feeInput}
                     onChange={(e) => setFeeInput(Number(e.target.value))}
-                    className="w-full rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 font-mono text-sm text-white"
+                    className="w-full rounded border border-slate-700 bg-[#070B14] px-3 py-2 font-mono text-sm text-[#F4F5F0]"
                   />
                 </div>
                 <div className="flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
                     onClick={handleAcceptCounterFee}
-                    className="rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200"
+                    className="rounded border border-slate-700 bg-[#0B1220] hover:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200"
                   >
                     Accept Asking ({formatMoney(negotiation.askingFee, settings.currency)})
                   </button>
                   <button
                     type="button"
                     onClick={handleSubmitFee}
-                    className="rounded-md bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white"
+                    className="ft-chamfer-sm bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white"
                   >
                     Submit Fee Offer
                   </button>
@@ -471,7 +567,7 @@ export const Transfers: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between text-xs text-slate-400">
                   <span>Player Asking Wage</span>
-                  <span className="font-mono text-white font-semibold">
+                  <span className="font-mono text-[#F4F5F0] font-bold">
                     {formatMoneyExact(negotiation.askingWage, settings.currency)}/wk
                   </span>
                 </div>
@@ -486,7 +582,7 @@ export const Transfers: React.FC = () => {
                       min={2000}
                       value={wageInput}
                       onChange={(e) => setWageInput(Number(e.target.value))}
-                      className="w-full rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 font-mono text-sm text-white"
+                      className="w-full rounded border border-slate-700 bg-[#070B14] px-3 py-2 font-mono text-sm text-[#F4F5F0]"
                     />
                   </div>
                   <div>
@@ -495,7 +591,7 @@ export const Transfers: React.FC = () => {
                       value={contractYearsInput}
                       onChange={(e) => setContractYearsInput(Number(e.target.value))}
                       disabled={negotiation.type === 'loan'}
-                      className="w-full rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 text-sm text-white"
+                      className="w-full rounded border border-slate-700 bg-[#070B14] px-3 py-2 text-sm text-[#F4F5F0]"
                     >
                       <option value={1}>1 Year</option>
                       <option value={2}>2 Years</option>
@@ -509,7 +605,7 @@ export const Transfers: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSubmitWage}
-                    className="rounded-md bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white"
+                    className="ft-chamfer-sm bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white"
                   >
                     Submit Personal Terms
                   </button>
@@ -518,7 +614,7 @@ export const Transfers: React.FC = () => {
             )}
 
             {negotiation.stage === 'completed' && (
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <div className="text-xs text-slate-300 font-mono">
                   Fee {formatMoney(negotiation.offeredFee, settings.currency)} · Wage{' '}
                   {formatMoneyExact(negotiation.offeredWage, settings.currency)}/wk
@@ -526,7 +622,7 @@ export const Transfers: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleFinalize}
-                  className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-xs font-semibold text-white"
+                  className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
                 >
                   <ArrowLeftRight className="h-3.5 w-3.5" />
                   <span>Complete Transfer</span>
@@ -539,7 +635,7 @@ export const Transfers: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setNegotiation(null)}
-                  className="rounded-md border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                  className="rounded border border-slate-700 bg-[#0B1220] px-4 py-2 text-xs font-semibold text-white"
                 >
                   Close Talks
                 </button>

@@ -1,5 +1,7 @@
 import React, { Suspense, lazy, useEffect } from 'react';
+import { MotionConfig } from 'motion/react';
 import { AppShell } from './components/layout/AppShell';
+import { GameBrandMark } from './components/shared/GamePrimitives';
 import { ToastHost } from './components/shared/ToastHost';
 import { MainMenu } from './pages/MainMenu';
 import { NewCareer } from './pages/NewCareer';
@@ -27,7 +29,12 @@ const SavesManager = lazy(() =>
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 
 const LoadingFallback: React.FC = () => (
-  <div className="p-8 text-sm text-slate-400">Loading module...</div>
+  <div className="ft-panel rounded-lg p-8 flex items-center gap-3 text-sm text-slate-300">
+    <GameBrandMark size={24} />
+    <span className="font-mono text-xs uppercase tracking-wider text-slate-400">
+      Loading module...
+    </span>
+  </div>
 );
 
 export default function App() {
@@ -49,12 +56,15 @@ export default function App() {
 
   if (!isHydrated) {
     return (
-      <div className="min-h-screen bg-[#0B0F17] text-slate-200 flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <div className="font-display text-3xl font-bold tracking-wider text-white">
+      <div className="min-h-screen ft-stadium-bg text-[#F4F5F0] flex items-center justify-center p-6">
+        <div className="text-center space-y-3">
+          <GameBrandMark size={52} className="mx-auto" />
+          <div className="font-display text-4xl font-extrabold tracking-wider text-[#F4F5F0]">
             FOOTBALL TYCOON
           </div>
-          <div className="text-xs text-slate-400">Initializing local database...</div>
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-emerald-400">
+            Initializing Career Database...
+          </div>
         </div>
       </div>
     );
@@ -75,7 +85,7 @@ export default function App() {
   const standalone = renderStandalone();
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       {standalone ? (
         <Suspense fallback={<LoadingFallback />}>{standalone}</Suspense>
       ) : (
@@ -97,6 +107,6 @@ export default function App() {
         </AppShell>
       )}
       <ToastHost />
-    </>
+    </MotionConfig>
   );
 }

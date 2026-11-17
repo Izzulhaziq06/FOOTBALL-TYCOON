@@ -5,8 +5,8 @@ import {
   createAcademyPlayer,
   CreateCareerParams,
   createNewCareer,
+  unlockOrRerollSkill2,
   unlockPlayerSuperstar,
-  updatePlayerSkills,
 } from '../engine/careerEngine';
 import { SkillId } from '../engine/skills';
 import {
@@ -48,6 +48,7 @@ interface CareerStore {
   settings: AppSettings;
   isHydrated: boolean;
   isBusy: boolean;
+  isRollingSkill: boolean;
   lastPlayedFixtureId: string | null;
 
   hydrate: () => Promise<void>;
@@ -72,18 +73,19 @@ interface CareerStore {
     weeklyWage: number,
     years: number
   ) => Promise<{ ok: boolean; error?: string }>;
-  customizePlayerSkills: (
-    playerId: string,
-    skill1: SkillId | null,
-    skill2: SkillId | null
-  ) => Promise<{ ok: boolean; error?: string }>;
+  rollDevelopedSkill: (playerId: string) => Promise<{
+    ok: boolean;
+    error?: string;
+    rolledSkill?: SkillId;
+    previousSkill?: SkillId | null;
+  }>;
   unlockSuperstar: (playerId: string) => Promise<{ ok: boolean; error?: string }>;
   createCustomPlayer: (
     input: CreateAcademyPlayerInput
-  ) => Promise<{ ok: boolean; error?: string; player?: Player }>;
+  ) => Promise<{ ok: boolean; error?: string; player?: Player; tokensEarned?: number }>;
 
-  commitMatchday: (userFixtureId?: string, userMatchResult?: MatchResult) => Promise<void>;
-  rolloverSeason: () => Promise<void>;
+  commitMatchday: (userFixtureId?: string, userMatchResult?: MatchResult) => Promise<boolean>;
+  rolloverSeason: () => Promise<boolean>;
   clearActiveCareer: () => void;
 }
 
@@ -101,12 +103,36 @@ function queueSaveCareer(state: CareerState, onDone?: (saves: SaveSummary[]) => 
   return task;
 }
 
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+function sanitizeLoadedCareer(state: CareerState): CareerState {
+  return {
+    ...state,
+    news: dedupeById(state.news),
+    transactions: dedupeById(state.transactions),
+  };
+}
+
+let skillRollInFlight = false;
+let careerMutationInFlight = false;
+
 export const useCareerStore = create<CareerStore>((set, get) => ({
   career: null,
   saves: [],
   settings: DEFAULT_APP_SETTINGS,
   isHydrated: false,
   isBusy: false,
+  isRollingSkill: false,
   lastPlayedFixtureId: null,
 
   hydrate: async () => {
@@ -141,7 +167,7 @@ export const useCareerStore = create<CareerStore>((set, get) => ({
       return false;
     }
     const saves = await listCareerSaves();
-    set({ career: loaded, saves, lastPlayedFixtureId: null, isBusy: false });
+    set({ career: sanitizeLoadedCareer(loaded), saves, lastPlayedFixtureId: null, isBusy: false });
     return true;
   },
 
@@ -153,7 +179,7 @@ export const useCareerStore = create<CareerStore>((set, get) => ({
       return false;
     }
     const saves = await listCareerSaves();
-    set({ career: latest, saves, lastPlayedFixtureId: null, isBusy: false });
+    set({ career: sanitizeLoadedCareer(latest), saves, lastPlayedFixtureId: null, isBusy: false });
     return true;
   },
 
@@ -268,63 +294,151 @@ export const useCareerStore = create<CareerStore>((set, get) => ({
     return { ok: true };
   },
 
-  customizePlayerSkills: async (playerId, skill1, skill2) => {
+  rollDevelopedSkill: async (playerId) => {
+    if (skillRollInFlight || careerMutationInFlight) {
+      return { ok: false, error: 'Skill roll already in progress.' };
+    }
     const current = get().career;
     if (!current) return { ok: false, error: 'No active career.' };
-    const res = updatePlayerSkills(current, playerId, skill1, skill2);
-    if (!res.ok) return { ok: false, error: res.error };
-    set({ career: res.nextState });
-    if (get().settings.autosaveEnabled) {
-      await queueSaveCareer(res.nextState, (saves) => set({ saves }));
+
+    const res = unlockOrRerollSkill2(current, playerId);
+    if (!res.ok || !res.rolledSkill) {
+      return { ok: false, error: res.error };
     }
-    return { ok: true };
+
+    skillRollInFlight = true;
+    set({ isRollingSkill: true });
+    try {
+      await queueSaveCareer(res.nextState, (saves) => set({ saves }));
+      set({ career: res.nextState, isRollingSkill: false });
+      return {
+        ok: true,
+        rolledSkill: res.rolledSkill,
+        previousSkill: res.previousSkill,
+      };
+    } catch {
+      set({ isRollingSkill: false });
+      return {
+        ok: false,
+        error: 'Could not persist skill roll. No token was consumed.',
+      };
+    } finally {
+      skillRollInFlight = false;
+    }
   },
 
   unlockSuperstar: async (playerId) => {
+    if (careerMutationInFlight || skillRollInFlight) {
+      return { ok: false, error: 'Another career action is already in progress.' };
+    }
     const current = get().career;
     if (!current) return { ok: false, error: 'No active career.' };
     const res = unlockPlayerSuperstar(current, playerId);
     if (!res.ok) return { ok: false, error: res.error };
-    set({ career: res.nextState });
-    if (get().settings.autosaveEnabled) {
-      await queueSaveCareer(res.nextState, (saves) => set({ saves }));
+
+    careerMutationInFlight = true;
+    set({ isBusy: true });
+    try {
+      if (get().settings.autosaveEnabled) {
+        await queueSaveCareer(res.nextState, (saves) => set({ saves }));
+      }
+      set({ career: res.nextState, isBusy: false });
+      return { ok: true };
+    } catch {
+      set({ isBusy: false });
+      return {
+        ok: false,
+        error: 'Could not persist Superstar elevation. State was rolled back.',
+      };
+    } finally {
+      careerMutationInFlight = false;
     }
-    return { ok: true };
   },
 
   createCustomPlayer: async (input) => {
+    if (careerMutationInFlight || skillRollInFlight) {
+      return { ok: false, error: 'Another career action is already in progress.' };
+    }
     const current = get().career;
     if (!current) return { ok: false, error: 'No active career.' };
     const res = createAcademyPlayer(current, input);
     if (!res.ok || !res.player) return { ok: false, error: res.error };
-    set({ career: res.nextState });
-    if (get().settings.autosaveEnabled) {
-      await queueSaveCareer(res.nextState, (saves) => set({ saves }));
+
+    careerMutationInFlight = true;
+    set({ isBusy: true });
+    try {
+      if (get().settings.autosaveEnabled) {
+        await queueSaveCareer(res.nextState, (saves) => set({ saves }));
+      }
+      set({ career: res.nextState, isBusy: false });
+      return { ok: true, player: res.player, tokensEarned: res.tokensEarned };
+    } catch {
+      set({ isBusy: false });
+      return {
+        ok: false,
+        error: 'Could not persist academy promotion. State was rolled back.',
+      };
+    } finally {
+      careerMutationInFlight = false;
     }
-    return { ok: true, player: res.player };
   },
 
   commitMatchday: async (userFixtureId, userMatchResult) => {
+    if (careerMutationInFlight || skillRollInFlight) return false;
     const current = get().career;
-    if (!current) return;
+    if (!current || current.currentMatchday > current.totalMatchdays) return false;
+
     const precomputed =
       userFixtureId && userMatchResult ? { [userFixtureId]: userMatchResult } : undefined;
     const nextCareer = advanceMatchday(current, precomputed);
-    set({
-      career: nextCareer,
-      lastPlayedFixtureId: userFixtureId ?? null,
-    });
-    if (get().settings.autosaveEnabled) {
-      await queueSaveCareer(nextCareer, (saves) => set({ saves }));
+    if (nextCareer === current) return false;
+
+    careerMutationInFlight = true;
+    set({ isBusy: true });
+    try {
+      if (get().settings.autosaveEnabled) {
+        await queueSaveCareer(nextCareer, (saves) => set({ saves }));
+      }
+      set({
+        career: nextCareer,
+        lastPlayedFixtureId: userFixtureId ?? null,
+        isBusy: false,
+      });
+      return true;
+    } catch {
+      set({ isBusy: false });
+      return false;
+    } finally {
+      careerMutationInFlight = false;
     }
   },
 
   rolloverSeason: async () => {
+    if (careerMutationInFlight || skillRollInFlight) return false;
     const current = get().career;
-    if (!current) return;
+    if (
+      !current ||
+      current.currentMatchday <= current.totalMatchdays ||
+      current.seasonHistory.some((h) => h.seasonId === current.currentSeason)
+    ) {
+      return false;
+    }
+
     const nextCareer = advanceToNextSeason(current);
-    set({ career: nextCareer, lastPlayedFixtureId: null });
-    await queueSaveCareer(nextCareer, (saves) => set({ saves }));
+    if (nextCareer === current) return false;
+
+    careerMutationInFlight = true;
+    set({ isBusy: true });
+    try {
+      await queueSaveCareer(nextCareer, (saves) => set({ saves }));
+      set({ career: nextCareer, lastPlayedFixtureId: null, isBusy: false });
+      return true;
+    } catch {
+      set({ isBusy: false });
+      return false;
+    } finally {
+      careerMutationInFlight = false;
+    }
   },
 
   clearActiveCareer: () => set({ career: null, lastPlayedFixtureId: null }),

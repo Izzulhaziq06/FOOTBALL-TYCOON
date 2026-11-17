@@ -1,4 +1,4 @@
-import { getDefaultSkillsForPlayer, SKILL_MAP } from '../engine/skills';
+import { getNaturalSkillForPlayer, SKILL_MAP } from '../engine/skills';
 import { AppSettings, CareerState, Player, SaveSummary } from '../types';
 import {
   idbDeleteCareer,
@@ -33,11 +33,14 @@ export function validateCareerSavePayload(raw: unknown): raw is CareerState {
 export function migrateCareerSave(raw: CareerState): CareerState {
   const migratedPlayers: Record<string, Player> = {};
   for (const [id, player] of Object.entries(raw.players)) {
-    const defaults = getDefaultSkillsForPlayer(player.primaryPosition, player.id);
-    const hasSkill1Key = 'skill1' in player && (player.skill1 === null || Boolean(player.skill1 && SKILL_MAP[player.skill1]));
-    const hasSkill2Key = 'skill2' in player && (player.skill2 === null || Boolean(player.skill2 && SKILL_MAP[player.skill2]));
-    const skill1 = hasSkill1Key ? player.skill1 : defaults.skill1;
-    let skill2 = hasSkill2Key ? player.skill2 : defaults.skill2;
+    const fallbackNatural = getNaturalSkillForPlayer(player.primaryPosition, player.id);
+    const hasSkill1Key =
+      'skill1' in player && Boolean(player.skill1 && SKILL_MAP[player.skill1]);
+    const hasSkill2Key =
+      'skill2' in player &&
+      (player.skill2 === null || Boolean(player.skill2 && SKILL_MAP[player.skill2]));
+    const skill1 = hasSkill1Key ? player.skill1 : fallbackNatural;
+    let skill2 = hasSkill2Key ? player.skill2 : null;
     if (skill1 && skill2 && skill1 === skill2) {
       skill2 = null;
     }
@@ -53,6 +56,57 @@ export function migrateCareerSave(raw: CareerState): CareerState {
     };
   }
 
+  let claimedRewards: string[];
+  if (Array.isArray(raw.claimedSkillTokenRewards)) {
+    claimedRewards = Array.from(
+      new Set(
+        raw.claimedSkillTokenRewards.filter(
+          (id): id is string => typeof id === 'string' && id.length > 0
+        )
+      )
+    );
+  } else {
+    const backfill = new Set<string>();
+    const matchesManaged = raw.manager?.matchesManaged ?? 0;
+    for (const m of [10, 25, 50, 100]) {
+      if (matchesManaged >= m) backfill.add(`milestone_matches:${m}`);
+    }
+    const wins = raw.manager?.wins ?? 0;
+    for (let w = 5; w <= wins; w += 5) {
+      backfill.add(`win_threshold:${w}`);
+    }
+    for (const h of raw.seasonHistory ?? []) {
+      backfill.add(`season_obj_league:${h.seasonId}`);
+      backfill.add(`season_obj_finance:${h.seasonId}`);
+    }
+    for (const compId of ['ucl', 'uel']) {
+      if (raw.competitions?.[compId]?.winnerClubId === raw.userClubId && raw.currentSeason) {
+        backfill.add(`comp_win:${compId}:${raw.currentSeason}`);
+      }
+    }
+    let curSeasonAcad = 0;
+    for (const p of Object.values(migratedPlayers)) {
+      if (p.clubId === raw.userClubId && p.isSuperstar) {
+        backfill.add(`superstar_elev:${p.id}`);
+      }
+      if (p.isCustomAcademyPlayer) {
+        backfill.add(`acad_promo:${p.id}`);
+        if (p.seasonId === raw.currentSeason && curSeasonAcad < 3) {
+          curSeasonAcad += 1;
+          backfill.add(`acad_season:${raw.currentSeason}:${curSeasonAcad}`);
+        }
+      }
+    }
+    for (const rep of raw.trainingReports ?? []) {
+      if (rep.improvedPlayers?.length > 0 && raw.currentSeason) {
+        const completedMd = Math.max(1, rep.matchday - 1);
+        const blk = Math.floor((completedMd - 1) / 6);
+        backfill.add(`training_block:${raw.currentSeason}:b${blk}`);
+      }
+    }
+    claimedRewards = Array.from(backfill);
+  }
+
   const migrated: CareerState = {
     ...raw,
     saveVersion: CURRENT_SAVE_VERSION,
@@ -65,6 +119,19 @@ export function migrateCareerSave(raw: CareerState): CareerState {
     transactions: Array.isArray(raw.transactions) ? raw.transactions : [],
     transfers: Array.isArray(raw.transfers) ? raw.transfers : [],
     isGeneratedSeason: Boolean(raw.isGeneratedSeason),
+    universalSkillTokens:
+      typeof raw.universalSkillTokens === 'number' &&
+      Number.isFinite(raw.universalSkillTokens) &&
+      raw.universalSkillTokens >= 0
+        ? Math.floor(raw.universalSkillTokens)
+        : 3,
+    claimedSkillTokenRewards: claimedRewards,
+    skillRollCount:
+      typeof raw.skillRollCount === 'number' &&
+      Number.isFinite(raw.skillRollCount) &&
+      raw.skillRollCount >= 0
+        ? Math.floor(raw.skillRollCount)
+        : 0,
     seedCounter: typeof raw.seedCounter === 'number' ? raw.seedCounter : 1001,
   };
   return migrated;

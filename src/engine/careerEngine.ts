@@ -29,9 +29,13 @@ import {
   estimateWeeklyWage,
 } from './ratings';
 import {
+  applyTokenRewardClaims,
   checkSuperstarUnlockEligibility,
+  getEligibleDevelopedSkills,
+  getNaturalSkillForPlayer,
+  rollDeterministicSkill,
+  SKILL_MAP,
   SkillId,
-  validateSkillPair,
 } from './skills';
 import { buildDefaultTactics } from './tacticsEngine';
 
@@ -165,6 +169,9 @@ export function createNewCareer(params: CreateCareerParams): CareerState {
     trainingReports: [],
     objectives: buildObjectivesForClub(userClub),
     seasonHistory: [],
+    universalSkillTokens: 3,
+    claimedSkillTokenRewards: [],
+    skillRollCount: 0,
     seedCounter: 1001,
   };
 }
@@ -277,6 +284,8 @@ export function advanceMatchday(
   const nextTransactions = [...state.transactions];
   const newNews: NewsItem[] = [];
   let nextManager = { ...state.manager };
+  const rewardCandidates: Array<{ id: string; amount: number }> = [];
+  const existingClaims = new Set(state.claimedSkillTokenRewards ?? []);
 
   const mdFixtures = nextFixtures.filter(
     (f) => f.seasonId === state.currentSeason && f.matchday === md && f.status === 'scheduled'
@@ -363,16 +372,26 @@ export function advanceMatchday(
         });
       }
 
-      if (nextManager.matchesManaged === 10) {
-        newNews.push({
-          id: `news_mile_${md}`,
-          date: fix.date,
-          matchday: md,
-          category: 'Board',
-          headline: `${nextManager.name} reaches 10 matches in charge`,
-          summary: `Record stands at ${nextManager.wins}W-${nextManager.draws}D-${nextManager.losses}L across competitions.`,
-          clubId: state.userClubId,
-        });
+      for (const m of [10, 25, 50, 100]) {
+        if (nextManager.matchesManaged >= m) {
+          const claimId = `milestone_matches:${m}`;
+          rewardCandidates.push({ id: claimId, amount: 1 });
+          if (state.manager.matchesManaged < m && !existingClaims.has(claimId)) {
+            newNews.push({
+              id: `news_mile_${m}`,
+              date: fix.date,
+              matchday: md,
+              category: 'Board',
+              headline: `${nextManager.name} reaches ${m} matches in charge`,
+              summary: `Record stands at ${nextManager.wins}W-${nextManager.draws}D-${nextManager.losses}L (+1 Universal Skill Token earned).`,
+              clubId: state.userClubId,
+            });
+          }
+        }
+      }
+
+      for (let w = 5; w <= nextManager.wins; w += 5) {
+        rewardCandidates.push({ id: `win_threshold:${w}`, amount: 1 });
       }
     }
   }
@@ -390,7 +409,7 @@ export function advanceMatchday(
 
   nextTransactions.unshift(
     {
-      id: `tx_wage_md${md}`,
+      id: `tx_wage_${state.currentSeason}_md${md}`,
       date: state.currentDate,
       matchday: md,
       category: 'Weekly Wages',
@@ -399,7 +418,7 @@ export function advanceMatchday(
       balanceAfter: userClub.balance - wageBill,
     },
     {
-      id: `tx_tv_md${md}`,
+      id: `tx_tv_${state.currentSeason}_md${md}`,
       date: state.currentDate,
       matchday: md,
       category: 'Sponsor & Broadcast',
@@ -421,17 +440,26 @@ export function advanceMatchday(
     if (ko.newFixtures.length > 0) {
       nextFixtures.push(...ko.newFixtures);
     }
-    if (ko.winnerClubId) {
+    if (ko.winnerClubId && !comp.winnerClubId) {
       nextComps[compId] = { ...comp, winnerClubId: ko.winnerClubId };
-      newNews.push({
-        id: `news_win_${compId}_${state.currentSeason}`,
-        date: state.currentDate,
-        matchday: md,
-        category: 'Competition',
-        headline: `${nextClubs[ko.winnerClubId]?.name} lift the ${comp.name}!`,
-        summary: `A memorable continental triumph concludes the ${state.currentSeason} ${comp.name}.`,
-        clubId: ko.winnerClubId,
-      });
+      const compClaimId = `comp_win:${compId}:${state.currentSeason}`;
+      const isUserWinner = ko.winnerClubId === state.userClubId;
+      const grantsTokens = isUserWinner && !existingClaims.has(compClaimId);
+      if (isUserWinner) {
+        rewardCandidates.push({ id: compClaimId, amount: 2 });
+      }
+      const winNewsId = `news_win_${compId}_${state.currentSeason}`;
+      if (!state.news.some((n) => n.id === winNewsId) && !newNews.some((n) => n.id === winNewsId)) {
+        newNews.push({
+          id: winNewsId,
+          date: state.currentDate,
+          matchday: md,
+          category: 'Competition',
+          headline: `${nextClubs[ko.winnerClubId]?.name} lift the ${comp.name}!`,
+          summary: `A memorable continental triumph concludes the ${state.currentSeason} ${comp.name}.${grantsTokens ? ' (+2 Universal Skill Tokens earned)' : ''}`,
+          clubId: ko.winnerClubId,
+        });
+      }
     }
   }
 
@@ -445,7 +473,7 @@ export function advanceMatchday(
     const last3 = userRow.form.slice(-3).join('');
     if (last3 === 'WWW') {
       newNews.push({
-        id: `news_streak_w_${md}`,
+        id: `news_streak_w_${state.currentSeason}_${md}`,
         date: state.currentDate,
         matchday: md,
         category: 'Match',
@@ -455,7 +483,7 @@ export function advanceMatchday(
       });
     } else if (last3 === 'LLL') {
       newNews.push({
-        id: `news_streak_l_${md}`,
+        id: `news_streak_l_${state.currentSeason}_${md}`,
         date: fixDatePlus7(state.currentDate),
         matchday: md,
         category: 'Match',
@@ -500,6 +528,12 @@ export function advanceMatchday(
     };
   }
 
+  const tokenRes = applyTokenRewardClaims(
+    state.universalSkillTokens ?? 0,
+    state.claimedSkillTokenRewards,
+    rewardCandidates
+  );
+
   let updatedState: CareerState = {
     ...state,
     currentMatchday: nextMd,
@@ -511,9 +545,13 @@ export function advanceMatchday(
     competitions: nextComps,
     fixtures: nextFixtures,
     transactions: nextTransactions.slice(0, 120),
-    news: [...newNews, ...state.news].slice(0, 60),
+    news: Array.from(
+      new Map([...newNews, ...state.news].map((n) => [n.id, n])).values()
+    ).slice(0, 60),
     manager: nextManager,
     objectives: updatedObjectives,
+    universalSkillTokens: tokenRes.nextTokens,
+    claimedSkillTokenRewards: tokenRes.nextClaims,
     seedCounter: nextSeed,
     lastPlayedAt: new Date().toISOString(),
   };
@@ -529,36 +567,89 @@ function fixDatePlus7(isoDate: string): string {
   return dt.toISOString().slice(0, 10);
 }
 
-export function updatePlayerSkills(
+export function unlockOrRerollSkill2(
   state: CareerState,
-  playerId: string,
-  skill1: SkillId | null,
-  skill2: SkillId | null
-): { ok: boolean; error?: string; nextState: CareerState } {
+  playerId: string
+): {
+  ok: boolean;
+  error?: string;
+  rolledSkill?: SkillId;
+  previousSkill?: SkillId | null;
+  nextState: CareerState;
+} {
   const player = state.players[playerId];
   if (!player) {
     return { ok: false, error: 'Player not found.', nextState: state };
   }
   if (player.clubId !== state.userClubId) {
-    return { ok: false, error: 'Only players at your managed club can be customized.', nextState: state };
+    return {
+      ok: false,
+      error: 'Only players at your managed club can develop playstyle skills.',
+      nextState: state,
+    };
   }
-  const check = validateSkillPair(skill1, skill2);
-  if (!check.valid) {
-    return { ok: false, error: check.error, nextState: state };
+  const availableTokens = state.universalSkillTokens ?? 0;
+  if (availableTokens < 1) {
+    return {
+      ok: false,
+      error: 'Insufficient Universal Skill Tokens (1 token required).',
+      nextState: state,
+    };
   }
+
+  const eligible = getEligibleDevelopedSkills(
+    player.primaryPosition,
+    player.skill1,
+    player.skill2
+  );
+  if (eligible.length === 0) {
+    return {
+      ok: false,
+      error: 'No eligible Developed Skills remain for this player position.',
+      nextState: state,
+    };
+  }
+
+  const rollIndex = state.skillRollCount ?? 0;
+  const salt = `${playerId}:${rollIndex}:${player.skill2 ?? 'locked'}`;
+  const rolled = rollDeterministicSkill(eligible, state.seedCounter, salt);
+  const previousSkill = player.skill2;
 
   return {
     ok: true,
+    rolledSkill: rolled.id,
+    previousSkill,
     nextState: {
       ...state,
+      universalSkillTokens: availableTokens - 1,
+      skillRollCount: rollIndex + 1,
+      seedCounter: state.seedCounter + 1,
       players: {
         ...state.players,
         [playerId]: {
           ...player,
-          skill1,
-          skill2,
+          skill2: rolled.id,
         },
       },
+      news: [
+        {
+          id: `news_skill_${state.currentSeason}_${state.currentMatchday}_${playerId}_${rollIndex}`,
+          date: state.currentDate,
+          matchday: state.currentMatchday,
+          category: 'Development' as const,
+          headline:
+            previousSkill === null
+              ? `${player.fullName} unlocks ${rolled.name} Developed Skill`
+              : `${player.fullName} adapts Developed Skill to ${rolled.name}`,
+          summary:
+            previousSkill === null
+              ? `${player.fullName} unlocked ${rolled.name} (${rolled.category}) using 1 Universal Skill Token.`
+              : `${player.fullName} replaced ${SKILL_MAP[previousSkill]?.name ?? previousSkill} with ${rolled.name} (${rolled.category}) via 1 Universal Skill Token.`,
+          clubId: state.userClubId,
+          playerId,
+        },
+        ...state.news,
+      ].slice(0, 60),
       lastPlayedAt: new Date().toISOString(),
     },
   };
@@ -589,12 +680,20 @@ export function unlockPlayerSuperstar(
     superstarUnlockedReason: `Elevated via Tier ${Math.max(club.facilities.trainingGround, club.facilities.youthAcademy)} Club Development Programme (${state.currentSeason})`,
   };
 
+  const tokenRes = applyTokenRewardClaims(
+    state.universalSkillTokens ?? 0,
+    state.claimedSkillTokenRewards,
+    [{ id: `superstar_elev:${playerId}`, amount: 1 }]
+  );
+
   return {
     ok: true,
     nextState: {
       ...state,
       clubs: { ...state.clubs, [club.id]: updatedClub },
       players: { ...state.players, [playerId]: updatedPlayer },
+      universalSkillTokens: tokenRes.nextTokens,
+      claimedSkillTokenRewards: tokenRes.nextClaims,
       transactions: [
         {
           id: `tx_ss_${Date.now()}_${playerId}`,
@@ -614,7 +713,7 @@ export function unlockPlayerSuperstar(
           matchday: state.currentMatchday,
           category: 'Development' as const,
           headline: `${player.fullName} earns Superstar recognition at ${club.name}`,
-          summary: `Following standout development and club investment, ${player.fullName} joins ${club.name}'s marquee Superstar tier.`,
+          summary: `Following standout development and club investment, ${player.fullName} joins ${club.name}'s marquee Superstar tier${tokenRes.grantedAmount > 0 ? ' (+1 Universal Skill Token earned)' : ''}.`,
           clubId: club.id,
           playerId,
         },
@@ -635,8 +734,8 @@ export interface CreateAcademyPlayerInput {
   technicalAttributes: TechnicalAttributes;
   physicalAttributes: PhysicalAttributes;
   mentalAttributes: MentalAttributes;
-  skill1: SkillId | null;
-  skill2: SkillId | null;
+  skill1?: SkillId | null;
+  skill2?: SkillId | null;
   grantSuperstar?: boolean;
 }
 
@@ -647,7 +746,7 @@ export function getAcademyAttributeCap(youthAcademyTier: number): number {
 export function createAcademyPlayer(
   state: CareerState,
   input: CreateAcademyPlayerInput
-): { ok: boolean; error?: string; player?: Player; nextState: CareerState } {
+): { ok: boolean; error?: string; player?: Player; tokensEarned?: number; nextState: CareerState } {
   const club = state.clubs[state.userClubId];
   if (!club) {
     return { ok: false, error: 'Managed club not found.', nextState: state };
@@ -662,10 +761,10 @@ export function createAcademyPlayer(
     return { ok: false, error: 'Academy graduates must be aged between 16 and 23.', nextState: state };
   }
 
-  const skillCheck = validateSkillPair(input.skill1, input.skill2);
-  if (!skillCheck.valid) {
-    return { ok: false, error: skillCheck.error, nextState: state };
-  }
+  const naturalSkill = getNaturalSkillForPlayer(
+    input.primaryPosition,
+    `acad:${club.id}:${trimmedName}:${state.seedCounter}`
+  );
 
   const academyTier = club.facilities.youthAcademy;
   const maxAttr = getAcademyAttributeCap(academyTier);
@@ -801,8 +900,8 @@ export function createAcademyPlayer(
     isHistoricalRecord: false,
     ratingSource: 'gameplay_estimated',
     loanedFromClubId: null,
-    skill1: input.skill1,
-    skill2: input.skill2,
+    skill1: naturalSkill,
+    skill2: null,
     isSuperstar: Boolean(input.grantSuperstar),
     superstarUnlockedReason: input.grantSuperstar
       ? `Academy Tier ${academyTier} Superstar Promotion (${state.currentSeason})`
@@ -837,11 +936,36 @@ export function createAcademyPlayer(
         ]
       : state.transactions;
 
+  const seasonAcadPrefix = `acad_season:${state.currentSeason}:`;
+  const existingSeasonAcadCount = (state.claimedSkillTokenRewards ?? []).filter((id) =>
+    id.startsWith(seasonAcadPrefix)
+  ).length;
+  const academyCandidates: Array<{ id: string; amount: number }> = [];
+  if (existingSeasonAcadCount < 3) {
+    academyCandidates.push({
+      id: `${seasonAcadPrefix}${existingSeasonAcadCount + 1}`,
+      amount: 1,
+    });
+  }
+  const tokenRes = applyTokenRewardClaims(
+    state.universalSkillTokens ?? 0,
+    state.claimedSkillTokenRewards,
+    academyCandidates
+  );
+  const playerClaimId = `acad_promo:${newPlayer.id}`;
+  const nextClaims = tokenRes.nextClaims.includes(playerClaimId)
+    ? tokenRes.nextClaims
+    : [...tokenRes.nextClaims, playerClaimId];
+
   return {
     ok: true,
     player: newPlayer,
+    tokensEarned: tokenRes.grantedAmount,
     nextState: {
       ...state,
+      universalSkillTokens: tokenRes.nextTokens,
+      claimedSkillTokenRewards: nextClaims,
+      seedCounter: state.seedCounter + 1,
       clubs: { ...state.clubs, [club.id]: updatedClub },
       players: { ...state.players, [newPlayer.id]: newPlayer },
       transactions: nextTransactions,
@@ -852,7 +976,7 @@ export function createAcademyPlayer(
           matchday: state.currentMatchday,
           category: 'Development' as const,
           headline: `${newPlayer.fullName} promoted from ${club.name} Academy`,
-          summary: `${age}-year-old ${input.primaryPosition} (${overallRating} OVR / ${potential} POT) signs a 4-year first-team contract.`,
+          summary: `${age}-year-old ${input.primaryPosition} (${overallRating} OVR / ${potential} POT) joins with Natural Skill ${SKILL_MAP[naturalSkill].name}${tokenRes.grantedAmount > 0 ? ' (+1 Universal Skill Token earned)' : ' (seasonal Academy token limit reached)'}.`,
           clubId: club.id,
           playerId: newPlayer.id,
         },

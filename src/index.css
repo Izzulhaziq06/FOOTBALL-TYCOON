@@ -4,15 +4,26 @@
   --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   --font-display: "Barlow Condensed", "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-ft-navy: #070b14;
+  --color-ft-navy-deep: #050811;
+  --color-ft-charcoal: #0e1523;
+  --color-ft-panel: #121a2a;
+  --color-ft-elevated: #172135;
+  --color-ft-offwhite: #f4f5f0;
+  --color-ft-silver: #94a3b8;
+  --color-ft-emerald: #10b981;
+  --color-ft-amber: #f59e0b;
 }
 
 @layer base {
   html,
   body {
-    background-color: #0b0f17;
-    color: #f1f5f9;
+    background-color: #070b14;
+    color: #f4f5f0;
     font-family: var(--font-sans);
     letter-spacing: 0.005em;
+    overflow-x: clip;
   }
 
   h1,
@@ -27,6 +38,69 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Stadium Floodlight Tactical Environment */
+.ft-stadium-bg {
+  background-color: #070b14;
+  background-image:
+    radial-gradient(ellipse 80% 45% at 50% -10%, rgba(16, 185, 129, 0.11), transparent 70%),
+    radial-gradient(ellipse 55% 35% at 88% 0%, rgba(148, 163, 184, 0.06), transparent 65%),
+    linear-gradient(180deg, rgba(14, 21, 35, 0.72) 0%, #070b14 380px);
+}
+
+/* Architectural Game Surfaces */
+.ft-panel {
+  background: linear-gradient(180deg, rgba(20, 29, 46, 0.96) 0%, rgba(13, 20, 34, 0.98) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 28px -12px rgba(0, 0, 0, 0.65);
+}
+
+.ft-panel-inset {
+  background: rgba(8, 13, 24, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.ft-broadcast-strip {
+  background: linear-gradient(90deg, rgba(15, 23, 39, 0.98) 0%, rgba(11, 17, 30, 0.96) 60%, rgba(11, 32, 26, 0.95) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 32px -14px rgba(0, 0, 0, 0.7);
+}
+
+/* Tactical Corner Chamfer Accent */
+.ft-chamfer {
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.ft-chamfer-sm {
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+/* Pitch Turf Mowed Stripes */
+.ft-pitch-turf {
+  background-color: #0b2d1d;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(16, 185, 129, 0.065) 0px,
+      rgba(16, 185, 129, 0.065) 34px,
+      rgba(6, 28, 18, 0.22) 34px,
+      rgba(6, 28, 18, 0.22) 68px
+    ),
+    radial-gradient(ellipse 85% 60% at 50% 50%, rgba(16, 185, 129, 0.12), rgba(5, 18, 12, 0.48));
+}
+
+/* Subtle tactical blueprint hairline grid */
+.ft-tactical-grid {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
 /* Custom subtle scrollbars for dark sports editorial tables */
 ::-webkit-scrollbar {
   width: 6px;
@@ -34,7 +108,7 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0b0f17;
+  background: #070b14;
 }
 
 ::-webkit-scrollbar-thumb {

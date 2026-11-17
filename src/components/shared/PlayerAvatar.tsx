@@ -26,6 +26,7 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
   size = 44,
   className = '',
 }) => {
+  const gradId = React.useId();
   const h = hashId(playerId + fullName);
   const skin = SKIN_TONES[h % SKIN_TONES.length];
   const hair = HAIR_COLORS[(h >> 3) % HAIR_COLORS.length];
@@ -37,12 +38,20 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
       width={size}
       height={size}
       viewBox="0 0 64 64"
-      className={`rounded-md border border-slate-700/70 bg-[#121824] shrink-0 ${className}`}
+      className={`ft-chamfer-sm border border-slate-700/70 bg-[#0C1424] shrink-0 ${className}`}
       aria-label={fullName}
     >
-      <rect x="0" y="0" width="64" height="64" fill="#141C2B" />
-      <circle cx="32" cy="58" r="24" fill={primaryColor} opacity="0.92" />
-      <path d="M 24 41 L 32 49 L 40 41 Z" fill="#F8FAFC" opacity="0.9" />
+      <defs>
+        <radialGradient id={gradId} cx="50%" cy="28%" r="70%">
+          <stop offset="0%" stopColor={primaryColor} stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#070B14" stopOpacity="1" />
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width="64" height="64" fill={`url(#${gradId})`} />
+      {/* Subtle tactical backdrop lines */}
+      <line x1="0" y1="54" x2="64" y2="54" stroke="#94A3B8" strokeOpacity="0.1" strokeWidth="1" />
+      <circle cx="32" cy="59" r="24" fill={primaryColor} opacity="0.95" />
+      <path d="M 24 41 L 32 49 L 40 41 Z" fill="#F4F5F0" opacity="0.92" />
       {/* Neck */}
       <rect x="27" y="34" width="10" height="10" rx="4" fill={skin} />
       {/* Head */}

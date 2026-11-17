@@ -380,7 +380,7 @@ export const POSITION_SKILL_RECOMMENDATIONS: Record<Position, Array<[SkillId, Sk
   ],
   'Centre Back': [
     ['tackling', 'marking'],
-    ['gk_aerial', 'heading'],
+    ['strength', 'heading'],
   ],
   'Full Back': [
     ['ball_recovery', 'speed'],
@@ -413,6 +413,55 @@ export function getSkillById(id: SkillId | null | undefined): SkillDefinition | 
   return SKILL_MAP[id] ?? null;
 }
 
+export function isSkillCompatibleWithPosition(
+  skillId: SkillId,
+  position: Position
+): boolean {
+  const def = SKILL_MAP[skillId];
+  if (!def) return false;
+  if (position === 'Goalkeeper') {
+    return def.recommendedPositions.includes('Goalkeeper');
+  }
+  if (def.category === 'Goalkeeping') {
+    return false;
+  }
+  return def.recommendedPositions.includes(position);
+}
+
+export function getCompatibleSkillsForPosition(position: Position): SkillDefinition[] {
+  return SKILL_CATALOGUE.filter((def) => isSkillCompatibleWithPosition(def.id, position));
+}
+
+export function getEligibleDevelopedSkills(
+  position: Position,
+  naturalSkill: SkillId | null,
+  currentSkill2: SkillId | null
+): SkillDefinition[] {
+  return getCompatibleSkillsForPosition(position).filter(
+    (def) => def.id !== naturalSkill && def.id !== currentSkill2
+  );
+}
+
+export function rollDeterministicSkill(
+  eligible: SkillDefinition[],
+  seed: number,
+  salt: string
+): SkillDefinition {
+  if (eligible.length === 0) {
+    throw new Error('No eligible skills available to roll.');
+  }
+  let h = (2166136261 ^ (seed >>> 0)) >>> 0;
+  for (let i = 0; i < salt.length; i += 1) {
+    h ^= salt.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  h = (h + 0x6d2b79f5) >>> 0;
+  let t = Math.imul(h ^ (h >>> 15), 1 | h);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  const idx = ((t ^ (t >>> 14)) >>> 0) % eligible.length;
+  return eligible[idx];
+}
+
 export function validateSkillPair(
   skill1: SkillId | null,
   skill2: SkillId | null
@@ -429,18 +478,71 @@ export function validateSkillPair(
   return { valid: true };
 }
 
-export function getDefaultSkillsForPlayer(
+export function getNaturalSkillForPlayer(
   position: Position,
-  seedKey: string
-): { skill1: SkillId; skill2: SkillId } {
-  const recs = POSITION_SKILL_RECOMMENDATIONS[position];
+  seedKey: string,
+  preferredHistorical?: SkillId | null
+): SkillId {
+  if (
+    preferredHistorical &&
+    SKILL_MAP[preferredHistorical] &&
+    isSkillCompatibleWithPosition(preferredHistorical, position)
+  ) {
+    return preferredHistorical;
+  }
+  const pool = getCompatibleSkillsForPosition(position);
   let h = 2166136261;
   for (let i = 0; i < seedKey.length; i += 1) {
     h ^= seedKey.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  const pair = recs[(h >>> 0) % recs.length];
-  return { skill1: pair[0], skill2: pair[1] };
+  return pool[(h >>> 0) % pool.length].id;
+}
+
+export function getDefaultSkillsForPlayer(
+  position: Position,
+  seedKey: string
+): { skill1: SkillId; skill2: SkillId | null } {
+  return {
+    skill1: getNaturalSkillForPlayer(position, seedKey),
+    skill2: null,
+  };
+}
+
+export function applyTokenRewardClaims(
+  currentTokens: number,
+  existingClaims: string[] | undefined,
+  candidates: Array<{ id: string; amount: number }>
+): {
+  nextTokens: number;
+  nextClaims: string[];
+  grantedAmount: number;
+  grantedIds: string[];
+} {
+  const safeTokens =
+    typeof currentTokens === 'number' && Number.isFinite(currentTokens) && currentTokens >= 0
+      ? Math.floor(currentTokens)
+      : 0;
+  const seen = new Set(existingClaims ?? []);
+  const nextClaims = Array.from(seen);
+  const grantedIds: string[] = [];
+  let grantedAmount = 0;
+
+  for (const cand of candidates) {
+    if (!cand.id || cand.amount <= 0) continue;
+    if (seen.has(cand.id)) continue;
+    seen.add(cand.id);
+    nextClaims.push(cand.id);
+    grantedIds.push(cand.id);
+    grantedAmount += Math.floor(cand.amount);
+  }
+
+  return {
+    nextTokens: safeTokens + grantedAmount,
+    nextClaims,
+    grantedAmount,
+    grantedIds,
+  };
 }
 
 export function hasSkill(player: Player, id: SkillId): boolean {

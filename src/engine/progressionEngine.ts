@@ -16,6 +16,7 @@ import {
   getCompetitionStatLeaders,
 } from './competitionEngine';
 import { calculateOverallRating, estimateMarketValue } from './ratings';
+import { applyTokenRewardClaims } from './skills';
 import { buildBestLineupForFormation } from './tacticsEngine';
 
 function bumpAttr(val: number, delta: number): number {
@@ -45,7 +46,7 @@ export function runMatchdayTrainingAndRecovery(state: CareerState): CareerState 
         updated.fitness = Math.max(updated.fitness, 82);
         if (updated.clubId === state.userClubId) {
           newNews.push({
-            id: `news_rec_${state.currentMatchday}_${updated.id}`,
+            id: `news_rec_${state.currentSeason}_${state.currentMatchday}_${updated.id}`,
             date: state.currentDate,
             matchday: state.currentMatchday,
             category: 'Injury',
@@ -149,6 +150,16 @@ export function runMatchdayTrainingAndRecovery(state: CareerState): CareerState 
     nextPlayers[updated.id] = updated;
   }
 
+  const completedMatchday = Math.max(1, state.currentMatchday - 1);
+  const trainingBlock = Math.floor((completedMatchday - 1) / 6);
+  const trainingBlockClaimId = `training_block:${state.currentSeason}:b${trainingBlock}`;
+  const tokenRes = applyTokenRewardClaims(
+    state.universalSkillTokens ?? 0,
+    state.claimedSkillTokenRewards,
+    improvedPlayers.length > 0 ? [{ id: trainingBlockClaimId, amount: 1 }] : []
+  );
+  const devTokenEarned = tokenRes.grantedAmount;
+
   const report: TrainingReport = {
     id: `tr_rep_${state.currentSeason}_md${state.currentMatchday}`,
     matchday: state.currentMatchday,
@@ -157,19 +168,19 @@ export function runMatchdayTrainingAndRecovery(state: CareerState): CareerState 
     improvedPlayers,
     summary:
       improvedPlayers.length > 0
-        ? `${improvedPlayers.length} first-team player(s) gained +1 overall rating under ${focus} training.`
+        ? `${improvedPlayers.length} first-team player(s) gained +1 overall rating under ${focus} training${devTokenEarned > 0 ? ' (+1 Universal Skill Token earned)' : ''}.`
         : `Squad completed ${focus} conditioning and tactical drills.`,
   };
 
   if (improvedPlayers.length > 0) {
     const top = improvedPlayers[0];
     newNews.push({
-      id: `news_dev_${state.currentMatchday}_${top.playerId}`,
+      id: `news_dev_${state.currentSeason}_${state.currentMatchday}_${top.playerId}`,
       date: state.currentDate,
       matchday: state.currentMatchday,
       category: 'Development',
       headline: `${top.playerName} progresses in ${focus} training`,
-      summary: `${top.playerName} climbed to ${top.newOverall} OVR (${top.attribute}).`,
+      summary: `${top.playerName} climbed to ${top.newOverall} OVR (${top.attribute}).${devTokenEarned > 0 ? ' +1 Universal Skill Token earned.' : ''}`,
       clubId: state.userClubId,
       playerId: top.playerId,
     });
@@ -178,8 +189,12 @@ export function runMatchdayTrainingAndRecovery(state: CareerState): CareerState 
   return {
     ...state,
     players: nextPlayers,
+    universalSkillTokens: tokenRes.nextTokens,
+    claimedSkillTokenRewards: tokenRes.nextClaims,
     trainingReports: [report, ...state.trainingReports].slice(0, 25),
-    news: [...newNews, ...state.news].slice(0, 60),
+    news: Array.from(
+      new Map([...newNews, ...state.news].map((n) => [n.id, n])).values()
+    ).slice(0, 60),
   };
 }
 
@@ -194,6 +209,14 @@ function incrementSeasonLabel(currentSeason: string): { nextLabel: string; start
 }
 
 export function advanceToNextSeason(state: CareerState): CareerState {
+  if (
+    state.currentMatchday <= state.totalMatchdays ||
+    state.seasonHistory.some((h) => h.seasonId === state.currentSeason)
+  ) {
+    return state;
+  }
+
+  const prePrizeUserBalance = state.clubs[state.userClubId]?.balance ?? -1;
   const userLeague = state.competitions[state.userLeagueId];
   const standings = calculateLeagueStandings(userLeague, state.fixtures, state.clubs);
   const userPosIdx = standings.findIndex((r) => r.clubId === state.userClubId);
@@ -345,6 +368,29 @@ export function advanceToNextSeason(state: CareerState): CareerState {
     preferredId && starterIds.has(preferredId) ? preferredId : fallbackStarter;
 
   const wonLeague = userPos === 1;
+  const targetMax = userClub.reputation >= 88 ? 2 : userClub.reputation >= 81 ? 4 : 6;
+  const leagueObjectiveBonus = wonLeague ? 2 : userPos <= targetMax ? 1 : 0;
+  const financeObjectiveBonus = prePrizeUserBalance >= 0 ? 1 : 0;
+
+  const seasonCandidates: Array<{ id: string; amount: number }> = [];
+  if (leagueObjectiveBonus > 0) {
+    seasonCandidates.push({
+      id: `season_obj_league:${state.currentSeason}`,
+      amount: leagueObjectiveBonus,
+    });
+  }
+  if (financeObjectiveBonus > 0) {
+    seasonCandidates.push({
+      id: `season_obj_finance:${state.currentSeason}`,
+      amount: financeObjectiveBonus,
+    });
+  }
+  const tokenRes = applyTokenRewardClaims(
+    state.universalSkillTokens ?? 0,
+    state.claimedSkillTokenRewards,
+    seasonCandidates
+  );
+  const seasonRewardTokens = tokenRes.grantedAmount;
 
   return {
     ...state,
@@ -359,6 +405,8 @@ export function advanceToNextSeason(state: CareerState): CareerState {
     players: nextPlayers,
     competitions: nextComps,
     fixtures: nextFixtures,
+    universalSkillTokens: tokenRes.nextTokens,
+    claimedSkillTokenRewards: tokenRes.nextClaims,
     tactics: {
       ...state.tactics,
       slots: rebuiltLineup.slots,
@@ -391,7 +439,7 @@ export function advanceToNextSeason(state: CareerState): CareerState {
         matchday: 1,
         category: 'Competition' as const,
         headline: `${nextLabel} Career Season Underway`,
-        summary: `Generated career progression begins for ${userClub.name}. Summer transfer window is open.`,
+        summary: `Generated career progression begins for ${userClub.name}. Summer transfer window is open.${seasonRewardTokens > 0 ? ` (+${seasonRewardTokens} Universal Skill Token${seasonRewardTokens > 1 ? 's' : ''} awarded for season objectives)` : ''}`,
         clubId: userClub.id,
       },
       ...state.news,

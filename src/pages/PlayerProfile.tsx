@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { ArrowLeft, BadgeDollarSign, FileSignature, Star } from 'lucide-react';
+import { ArrowLeft, BadgeDollarSign, Coins, FileSignature, Star } from 'lucide-react';
 import { POSITION_CODES } from '../engine/ratings';
 import {
   checkSuperstarUnlockEligibility,
-  POSITION_SKILL_RECOMMENDATIONS,
+  getEligibleDevelopedSkills,
   SKILL_MAP,
-  SkillId,
 } from '../engine/skills';
 import { useCareerStore } from '../store/careerStore';
 import { useUiStore } from '../store/uiStore';
+import { ClubCrest } from '../components/shared/ClubCrest';
 import { ConfirmModal } from '../components/shared/ConfirmModal';
+import { OvrBadge } from '../components/shared/GamePrimitives';
 import { PlayerAvatar } from '../components/shared/PlayerAvatar';
 import { SkillSlotCard, SuperstarStar } from '../components/shared/SkillBadges';
 import { formatMoney, formatMoneyExact } from '../utils/format';
@@ -18,14 +19,18 @@ export const PlayerProfile: React.FC = () => {
   const {
     career,
     settings,
+    isBusy,
+    isRollingSkill,
     sellPlayer,
     renewContract,
-    customizePlayerSkills,
+    rollDevelopedSkill,
     unlockSuperstar,
   } = useCareerStore();
   const { selectedPlayerId, previousScreen, navigate, pushToast } = useUiStore();
 
   const [sellConfirmOpen, setSellConfirmOpen] = useState(false);
+  const [rerollConfirmOpen, setRerollConfirmOpen] = useState(false);
+  const [revealKey, setRevealKey] = useState(0);
   const [renewWage, setRenewWage] = useState<number | null>(null);
   const [renewYears, setRenewYears] = useState(3);
 
@@ -33,12 +38,12 @@ export const PlayerProfile: React.FC = () => {
   const player = career.players[selectedPlayerId];
   if (!player) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-[#121824] p-6">
+      <div className="ft-panel rounded-lg p-6">
         <p className="text-sm text-slate-300">Player record not found.</p>
         <button
           type="button"
           onClick={() => navigate('squad')}
-          className="mt-3 rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white"
+          className="mt-3 rounded bg-emerald-600 px-4 py-2 text-xs font-semibold text-white"
         >
           Back to Squad
         </button>
@@ -107,36 +112,45 @@ export const PlayerProfile: React.FC = () => {
 
   const userClub = career.clubs[career.userClubId];
   const superstarCheck = checkSuperstarUnlockEligibility(player, userClub);
-  const recommendedPairs = POSITION_SKILL_RECOMMENDATIONS[player.primaryPosition] ?? [];
+  const eligibleDevelopedPool = getEligibleDevelopedSkills(
+    player.primaryPosition,
+    player.skill1,
+    player.skill2
+  );
+  const tokenCount = career.universalSkillTokens ?? 0;
 
-  const handleSkillChange = async (slot: 1 | 2, nextSkill: SkillId | null) => {
-    const latestPlayer = useCareerStore.getState().career?.players[player.id] ?? player;
-    const next1 = slot === 1 ? nextSkill : latestPlayer.skill1;
-    const next2 = slot === 2 ? nextSkill : latestPlayer.skill2;
-    const res = await customizePlayerSkills(player.id, next1, next2);
-    if (res.ok) {
-      pushToast('success', `Updated Skill ${slot} for ${player.fullName}.`);
+  const executeSkillRoll = async () => {
+    const res = await rollDevelopedSkill(player.id);
+    setRerollConfirmOpen(false);
+    if (res.ok && res.rolledSkill) {
+      setRevealKey((k) => k + 1);
+      const newSkillName = SKILL_MAP[res.rolledSkill]?.name ?? res.rolledSkill;
+      if (res.previousSkill) {
+        const oldName = SKILL_MAP[res.previousSkill]?.name ?? res.previousSkill;
+        pushToast(
+          'success',
+          `${player.fullName} replaced ${oldName} with ${newSkillName}!`
+        );
+      } else {
+        pushToast('success', `${player.fullName} unlocked ${newSkillName}!`);
+      }
     } else {
-      pushToast('error', res.error ?? 'Could not update skill slot.');
+      pushToast('error', res.error ?? 'Could not roll Developed Skill.');
     }
   };
 
-  const handleApplyRecommendedPair = async (pair: [SkillId, SkillId]) => {
-    const res = await customizePlayerSkills(player.id, pair[0], pair[1]);
-    if (res.ok) {
-      pushToast(
-        'success',
-        `Applied ${SKILL_MAP[pair[0]].name} + ${SKILL_MAP[pair[1]].name} to ${player.fullName}.`
-      );
+  const handleDevelopedSkillAction = () => {
+    if (player.skill2 !== null) {
+      setRerollConfirmOpen(true);
     } else {
-      pushToast('error', res.error ?? 'Could not apply recommended pair.');
+      void executeSkillRoll();
     }
   };
 
   const handleUnlockSuperstar = async () => {
     const res = await unlockSuperstar(player.id);
     if (res.ok) {
-      pushToast('success', `${player.fullName} unlocked Superstar status!`);
+      pushToast('success', `${player.fullName} unlocked Superstar status! (+1 Universal Skill Token)`);
     } else {
       pushToast('error', res.error ?? 'Superstar elevation requirements not met.');
     }
@@ -144,14 +158,14 @@ export const PlayerProfile: React.FC = () => {
 
   const renderBar = (label: string, value: number) => {
     const barColor =
-      value >= 82 ? 'bg-emerald-500' : value >= 70 ? 'bg-sky-500' : 'bg-slate-500';
+      value >= 82 ? 'bg-emerald-400' : value >= 70 ? 'bg-sky-400' : 'bg-slate-500';
     return (
       <div key={label} className="space-y-1">
         <div className="flex justify-between text-xs">
           <span className="text-slate-300">{label}</span>
-          <span className="font-mono font-semibold text-white tabular-nums">{value}</span>
+          <span className="font-mono font-bold text-[#F4F5F0] tabular-nums">{value}</span>
         </div>
-        <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+        <div className="h-1.5 rounded-xs bg-[#070B14] overflow-hidden">
           <div className={`h-full ${barColor}`} style={{ width: `${value}%` }} />
         </div>
       </div>
@@ -163,31 +177,42 @@ export const PlayerProfile: React.FC = () => {
       <button
         type="button"
         onClick={() => navigate(previousScreen === 'player_profile' ? 'squad' : previousScreen)}
-        className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200"
+        className="inline-flex items-center gap-2 rounded border border-slate-700/80 bg-[#0E1626] hover:bg-slate-800 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider text-slate-200"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         <span>Back</span>
       </button>
 
-      {/* Player Header */}
-      <section className="rounded-lg border border-slate-800 bg-[#121824] p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
+      {/* Player Dossier Header */}
+      <section className="ft-broadcast-strip rounded-lg p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 w-1.5"
+          style={{ backgroundColor: club?.crest.primaryColor ?? '#10B981' }}
+          aria-hidden="true"
+        />
+        <div className="flex items-center gap-4 sm:gap-5 pl-2 min-w-0">
           <PlayerAvatar
             playerId={player.id}
             fullName={player.fullName}
             primaryColor={club?.crest.primaryColor}
-            size={76}
+            size={84}
           />
-          <div className="space-y-1">
-            <div className="text-xs text-slate-400">
-              {club?.name} · {player.nationality} · Born {player.dateOfBirth}
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              {club && <ClubCrest crest={club.crest} size={18} />}
+              <span className="truncate">
+                {club?.name} · {player.nationality} · Born {player.dateOfBirth}
+              </span>
             </div>
-            <h1 className="font-display text-4xl font-bold text-white leading-none flex items-center gap-2.5 flex-wrap">
+            <h1 className="font-display text-4xl sm:text-5xl font-extrabold text-[#F4F5F0] leading-none flex items-center gap-2.5 flex-wrap">
               <span>{player.fullName}</span>
               <SuperstarStar isSuperstar={player.isSuperstar} size="lg" />
             </h1>
-            <div className="text-xs text-slate-300 pt-1">
-              {player.primaryPosition} ({POSITION_CODES[player.primaryPosition]})
+            <div className="text-xs text-slate-300 font-medium">
+              <span className="font-mono font-bold text-emerald-400">
+                {POSITION_CODES[player.primaryPosition]}
+              </span>{' '}
+              · {player.primaryPosition}
               {player.secondaryPositions.length > 0
                 ? ` · Secondary: ${player.secondaryPositions.join(', ')}`
                 : ''}
@@ -206,98 +231,92 @@ export const PlayerProfile: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 text-center border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
-          <div>
-            <div className="text-xs text-slate-400">Overall</div>
-            <div className="font-display text-4xl font-bold text-emerald-400 tabular-nums">
-              {player.overallRating}
+        <div className="flex items-center gap-3 pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-slate-800 md:pl-6 shrink-0 pl-2">
+          <OvrBadge rating={player.overallRating} label="OVR" size="lg" />
+          <div className="ft-chamfer-sm border border-slate-700/80 bg-[#090E1A] px-3.5 py-2 text-center min-w-[68px]">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              POT
             </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400">Potential</div>
-            <div className="font-display text-4xl font-bold text-white tabular-nums">
+            <div className="font-display text-3xl font-extrabold text-[#F4F5F0] leading-none tabular-nums">
               {player.potential}
             </div>
           </div>
-          <div>
-            <div className="text-xs text-slate-400">Age</div>
-            <div className="font-display text-4xl font-bold text-slate-200 tabular-nums">
+          <div className="ft-chamfer-sm border border-slate-800 bg-[#090E1A] px-3.5 py-2 text-center min-w-[60px]">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              AGE
+            </div>
+            <div className="font-display text-3xl font-extrabold text-slate-300 leading-none tabular-nums">
               {player.age}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Attributes Grid */}
+      {/* Attributes Matrix */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-3">
-          <h2 className="font-display text-xl font-bold text-white">Technical</h2>
+        <div className="ft-panel rounded-lg p-5 space-y-3 border-t-2 border-t-emerald-500/70">
+          <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">Technical</h2>
           <div className="space-y-2.5">{techList.map(([k, v]) => renderBar(k, v))}</div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-3">
-          <h2 className="font-display text-xl font-bold text-white">Physical</h2>
+        <div className="ft-panel rounded-lg p-5 space-y-3 border-t-2 border-t-sky-500/70">
+          <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">Physical</h2>
           <div className="space-y-2.5">{physList.map(([k, v]) => renderBar(k, v))}</div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-3">
-          <h2 className="font-display text-xl font-bold text-white">Mental</h2>
+        <div className="ft-panel rounded-lg p-5 space-y-3 border-t-2 border-t-amber-500/70">
+          <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">Mental</h2>
           <div className="space-y-2.5">{mentList.map(([k, v]) => renderBar(k, v))}</div>
         </div>
       </section>
 
-      {/* Playstyle Skills (2 Slots: Blue + Purple) & Superstar Progression */}
-      <section className="rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-4">
+      {/* Playstyle Skills (Natural + Token-Developed) & Superstar Progression */}
+      <section className="ft-panel rounded-lg p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-bold text-white">
+            <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">
               Playstyle Skills &amp; Superstar Tier
             </h2>
             <p className="text-xs text-slate-400">
-              Two specialized tactical playstyles affect match simulation without altering base OVR.
+              Natural Skill is permanent. Use Universal Skill Tokens to unlock or reroll Developed
+              Skill from position-compatible traits without altering base OVR.
             </p>
           </div>
-          {isUserPlayer && recommendedPairs.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] text-slate-400">Recommended for {POSITION_CODES[player.primaryPosition]}:</span>
-              {recommendedPairs.map((pair, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleApplyRecommendedPair(pair)}
-                  className="rounded border border-slate-700 bg-[#0B0F17] hover:border-emerald-500 px-2.5 py-1 text-[11px] font-medium text-slate-200"
-                >
-                  {SKILL_MAP[pair[0]].name} + {SKILL_MAP[pair[1]].name}
-                </button>
-              ))}
+          {isUserPlayer && (
+            <div
+              data-testid="universal-token-balance"
+              className="inline-flex items-center gap-2.5 rounded border border-emerald-500/35 bg-[#08131E] px-3.5 py-2 shrink-0 self-start sm:self-auto"
+            >
+              <Coins className="h-4 w-4 text-emerald-400 shrink-0" />
+              <div className="leading-tight">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                  Club Token Inventory
+                </div>
+                <div className="font-mono text-sm font-bold text-emerald-300 tabular-nums">
+                  {tokenCount} Universal Skill {tokenCount === 1 ? 'Token' : 'Tokens'}
+                </div>
+              </div>
             </div>
           )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <SkillSlotCard
-            slotLabel="Skill 1 (Blue)"
-            tone="blue"
-            value={player.skill1}
-            blockedValue={player.skill2}
-            editable={isUserPlayer}
-            selectAriaLabel="Select Skill 1 (Blue)"
-            onChange={(next) => handleSkillChange(1, next)}
-          />
+          <SkillSlotCard mode="natural" value={player.skill1} />
 
           <SkillSlotCard
-            slotLabel="Skill 2 (Purple)"
-            tone="purple"
+            mode="developed"
             value={player.skill2}
-            blockedValue={player.skill1}
-            editable={isUserPlayer}
-            selectAriaLabel="Select Skill 2 (Purple)"
-            onChange={(next) => handleSkillChange(2, next)}
+            isUserPlayer={isUserPlayer}
+            tokenCount={tokenCount}
+            eligibleCount={eligibleDevelopedPool.length}
+            isRolling={isRollingSkill}
+            revealKey={revealKey}
+            onUnlockOrReroll={handleDevelopedSkillAction}
           />
 
           <div
-            className={`rounded-lg border p-4 flex flex-col justify-between gap-3 ${
+            className={`rounded-md border p-4 flex flex-col justify-between gap-3 ${
               player.isSuperstar
-                ? 'border-amber-500/50 bg-amber-950/20'
-                : 'border-slate-800 bg-[#0B0F17]'
+                ? 'border-amber-400/60 bg-amber-950/20 shadow-[inset_0_1px_0_rgba(245,158,11,0.2)]'
+                : 'border-slate-800 bg-[#080D18]'
             }`}
           >
             <div className="space-y-1.5">
@@ -307,11 +326,11 @@ export const PlayerProfile: React.FC = () => {
                     player.isSuperstar ? 'fill-amber-400 text-amber-300' : 'text-slate-500'
                   }`}
                 />
-                <span className="text-xs font-semibold uppercase tracking-wide text-amber-300">
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-300">
                   Superstar Status
                 </span>
               </div>
-              <div className="text-base font-semibold text-white">
+              <div className="font-display text-xl font-bold text-[#F4F5F0]">
                 {player.isSuperstar ? 'Active Superstar' : 'Standard Squad Tier'}
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
@@ -325,9 +344,9 @@ export const PlayerProfile: React.FC = () => {
             {isUserPlayer && !player.isSuperstar && (
               <button
                 type="button"
-                disabled={!superstarCheck.eligible}
+                disabled={!superstarCheck.eligible || isBusy || isRollingSkill}
                 onClick={handleUnlockSuperstar}
-                className="rounded-md bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-500 px-3.5 py-2 text-xs font-semibold text-white"
+                className="rounded bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-500 px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
               >
                 {superstarCheck.eligible
                   ? `Unlock Superstar (${formatMoney(superstarCheck.developmentCost, settings.currency)})`
@@ -340,30 +359,30 @@ export const PlayerProfile: React.FC = () => {
 
       {/* Performance, Contract, and Development */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-6 rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-4">
-          <h2 className="font-display text-xl font-bold text-white">Season & Career Statistics</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 text-sm tabular-nums">
-            <div className="rounded border border-slate-800 bg-[#0B0F17] p-3">
-              <div className="text-xs text-slate-400">Appearances</div>
-              <div className="font-mono text-lg font-semibold text-white">
+        <div className="lg:col-span-6 ft-panel rounded-lg p-5 space-y-4">
+          <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">Season &amp; Career Statistics</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm tabular-nums">
+            <div className="ft-panel-inset rounded p-3">
+              <div className="text-[11px] font-mono uppercase text-slate-400">Apps</div>
+              <div className="font-mono text-xl font-bold text-[#F4F5F0] mt-0.5">
                 {player.seasonStats.appearances}
               </div>
             </div>
-            <div className="rounded border border-slate-800 bg-[#0B0F17] p-3">
-              <div className="text-xs text-slate-400">Goals</div>
-              <div className="font-mono text-lg font-semibold text-emerald-400">
+            <div className="ft-panel-inset rounded p-3">
+              <div className="text-[11px] font-mono uppercase text-slate-400">Goals</div>
+              <div className="font-mono text-xl font-bold text-emerald-400 mt-0.5">
                 {player.seasonStats.goals}
               </div>
             </div>
-            <div className="rounded border border-slate-800 bg-[#0B0F17] p-3">
-              <div className="text-xs text-slate-400">Assists</div>
-              <div className="font-mono text-lg font-semibold text-white">
+            <div className="ft-panel-inset rounded p-3">
+              <div className="text-[11px] font-mono uppercase text-slate-400">Assists</div>
+              <div className="font-mono text-xl font-bold text-[#F4F5F0] mt-0.5">
                 {player.seasonStats.assists}
               </div>
             </div>
-            <div className="rounded border border-slate-800 bg-[#0B0F17] p-3">
-              <div className="text-xs text-slate-400">Avg Rating</div>
-              <div className="font-mono text-lg font-semibold text-white">
+            <div className="ft-panel-inset rounded p-3">
+              <div className="text-[11px] font-mono uppercase text-slate-400">Avg Rating</div>
+              <div className="font-mono text-xl font-bold text-[#F4F5F0] mt-0.5">
                 {player.seasonStats.averageRating > 0
                   ? player.seasonStats.averageRating.toFixed(1)
                   : '—'}
@@ -378,45 +397,49 @@ export const PlayerProfile: React.FC = () => {
             </span>
           </div>
 
-          <div className="pt-2 border-t border-slate-800 space-y-2">
-            <h3 className="text-xs font-semibold text-slate-300">Development Trajectory</h3>
+          <div className="pt-3 border-t border-slate-800 space-y-2">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-slate-300">
+              Development Trajectory
+            </h3>
             <div className="max-h-36 overflow-y-auto divide-y divide-slate-800/60 text-xs">
               {player.developmentHistory.map((d, i) => (
                 <div key={i} className="py-1.5 flex justify-between gap-2">
                   <span className="text-slate-300">
                     {d.seasonId} MD {d.matchday} · {d.note}
                   </span>
-                  <span className="font-mono text-emerald-400 tabular-nums">{d.overall} OVR</span>
+                  <span className="font-mono font-bold text-emerald-400 tabular-nums">
+                    {d.overall} OVR
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-6 rounded-lg border border-slate-800 bg-[#121824] p-5 space-y-4">
-          <h2 className="font-display text-xl font-bold text-white">Contract & Valuation</h2>
+        <div className="lg:col-span-6 ft-panel rounded-lg p-5 space-y-4">
+          <h2 className="font-display text-2xl font-bold text-[#F4F5F0]">Contract &amp; Valuation</h2>
           <div className="grid grid-cols-2 gap-4 text-sm tabular-nums">
-            <div>
-              <div className="text-xs text-slate-400">Market Value</div>
-              <div className="font-mono text-lg font-semibold text-white">
+            <div className="ft-panel-inset rounded p-3">
+              <div className="text-[11px] font-mono uppercase text-slate-400">Market Value</div>
+              <div className="font-mono text-lg font-bold text-[#F4F5F0] mt-0.5">
                 {formatMoney(player.marketValue, settings.currency)}
               </div>
             </div>
-            <div>
-              <div className="text-xs text-slate-400">Weekly Wage</div>
-              <div className="font-mono text-lg font-semibold text-white">
+            <div className="ft-panel-inset rounded p-3">
+              <div className="text-[11px] font-mono uppercase text-slate-400">Weekly Wage</div>
+              <div className="font-mono text-lg font-bold text-[#F4F5F0] mt-0.5">
                 {formatMoneyExact(player.weeklyWage, settings.currency)}/wk
               </div>
             </div>
-            <div>
-              <div className="text-xs text-slate-400">Contract Expiry</div>
-              <div className="font-mono text-base font-semibold text-white">
+            <div className="ft-panel-inset rounded p-3">
+              <div className="text-[11px] font-mono uppercase text-slate-400">Contract Expiry</div>
+              <div className="font-mono text-base font-semibold text-[#F4F5F0] mt-0.5">
                 June {player.contractExpiry}
               </div>
             </div>
-            <div>
-              <div className="text-xs text-slate-400">Fitness / Morale</div>
-              <div className="font-mono text-base font-semibold text-emerald-400">
+            <div className="ft-panel-inset rounded p-3">
+              <div className="text-[11px] font-mono uppercase text-slate-400">Fitness / Morale</div>
+              <div className="font-mono text-base font-semibold text-emerald-400 mt-0.5">
                 {player.fitness}% / {player.morale}%
               </div>
             </div>
@@ -424,7 +447,9 @@ export const PlayerProfile: React.FC = () => {
 
           {isUserPlayer && (
             <div className="pt-4 border-t border-slate-800 space-y-3">
-              <div className="text-xs font-semibold text-slate-300">Contract Management</div>
+              <div className="text-xs font-mono uppercase tracking-wider text-slate-300">
+                Contract Management
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] text-slate-400 mb-1">
@@ -436,7 +461,7 @@ export const PlayerProfile: React.FC = () => {
                     min={2000}
                     value={proposedWage}
                     onChange={(e) => setRenewWage(Number(e.target.value))}
-                    className="w-full rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-1.5 text-sm font-mono text-white"
+                    className="w-full rounded border border-slate-700 bg-[#070B14] px-3 py-2 text-sm font-mono text-[#F4F5F0]"
                   />
                 </div>
                 <div>
@@ -444,7 +469,7 @@ export const PlayerProfile: React.FC = () => {
                   <select
                     value={renewYears}
                     onChange={(e) => setRenewYears(Number(e.target.value))}
-                    className="w-full rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-1.5 text-sm text-white"
+                    className="w-full rounded border border-slate-700 bg-[#070B14] px-3 py-2 text-sm text-[#F4F5F0]"
                   >
                     <option value={2}>2 Years</option>
                     <option value={3}>3 Years</option>
@@ -457,7 +482,7 @@ export const PlayerProfile: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleRenew}
-                  className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white"
+                  className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white"
                 >
                   <FileSignature className="h-3.5 w-3.5" />
                   <span>Renew Contract</span>
@@ -465,7 +490,7 @@ export const PlayerProfile: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSellConfirmOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-md border border-red-900/70 bg-red-950/30 hover:bg-red-900/40 px-4 py-2 text-xs font-semibold text-red-200"
+                  className="inline-flex items-center gap-2 rounded border border-red-900/70 bg-red-950/30 hover:bg-red-900/40 px-4 py-2 text-xs font-semibold text-red-200"
                 >
                   <BadgeDollarSign className="h-3.5 w-3.5" />
                   <span>Sell Player ({formatMoney(player.marketValue * 0.95, settings.currency)})</span>
@@ -475,6 +500,22 @@ export const PlayerProfile: React.FC = () => {
           )}
         </div>
       </section>
+
+      <ConfirmModal
+        open={rerollConfirmOpen && player.skill2 !== null}
+        title="Confirm Developed Skill Reroll"
+        description={
+          player.skill2
+            ? `Current Developed Skill: ${SKILL_MAP[player.skill2]?.name ?? player.skill2} (${SKILL_MAP[player.skill2]?.category ?? 'Playstyle'}). Spending 1 Universal Skill Token will permanently replace ${SKILL_MAP[player.skill2]?.name ?? player.skill2} with a new randomly rolled eligible skill. Remaining tokens after reroll: ${Math.max(0, tokenCount - 1)}.`
+            : ''
+        }
+        confirmLabel="Confirm Reroll (1 Token)"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          void executeSkillRoll();
+        }}
+        onCancel={() => setRerollConfirmOpen(false)}
+      />
 
       <ConfirmModal
         open={sellConfirmOpen}

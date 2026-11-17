@@ -12,7 +12,7 @@ import {
   estimateMarketValue,
   estimateWeeklyWage,
 } from '../engine/ratings';
-import { getDefaultSkillsForPlayer } from '../engine/skills';
+import { getNaturalSkillForPlayer } from '../engine/skills';
 import {
   Club,
   Competition,
@@ -207,9 +207,11 @@ function createPlayerFromSeed(
   const potential = Math.max(overallRating, Math.min(97, seed.potentialPeak));
   const startYr = seasonStartYear(seasonId);
   const contractLength = seededOffset(`${seed.id}:${seasonId}:con`, 2, 5);
-  const defaultSkills = getDefaultSkillsForPlayer(seed.primaryPosition, `${seed.id}:${seasonId}`);
-  const skill1 = seed.defaultSkills?.[0] ?? defaultSkills.skill1;
-  const skill2 = seed.defaultSkills?.[1] ?? defaultSkills.skill2;
+  const skill1 = getNaturalSkillForPlayer(
+    seed.primaryPosition,
+    `${seed.id}:${seasonId}`,
+    seed.defaultSkills?.[0] ?? null
+  );
   const isSuperstar = seed.isSuperstar ?? (seed.tier === 'world_class' && overallRating >= 86);
 
   return {
@@ -271,7 +273,7 @@ function createPlayerFromSeed(
     ratingSource: 'gameplay_estimated',
     loanedFromClubId: null,
     skill1,
-    skill2: skill1 === skill2 ? null : skill2,
+    skill2: null,
     isSuperstar,
     superstarUnlockedReason: isSuperstar ? 'Historical marquee standing' : undefined,
   };
@@ -361,7 +363,7 @@ function createDepthPlayer(
     Striker: ['Winger'],
   };
 
-  const defaultSkills = getDefaultSkillsForPlayer(position, seedKey);
+  const naturalSkill = getNaturalSkillForPlayer(position, seedKey);
 
   return {
     id: `gen_${clubId}_${position.toLowerCase().replace(/\s+/g, '_')}_${slotNumber}`,
@@ -421,8 +423,8 @@ function createDepthPlayer(
     isHistoricalRecord: false,
     ratingSource: 'gameplay_estimated',
     loanedFromClubId: null,
-    skill1: defaultSkills.skill1,
-    skill2: defaultSkills.skill2,
+    skill1: naturalSkill,
+    skill2: null,
     isSuperstar: false,
   };
 }

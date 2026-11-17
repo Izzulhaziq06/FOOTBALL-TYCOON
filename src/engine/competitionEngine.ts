@@ -125,7 +125,7 @@ export function advanceKnockoutBracketIfReady(
   fixtures: Fixture[],
   seasonStartDate: string
 ): { newFixtures: Fixture[]; winnerClubId: string | null } {
-  if (competition.competitionFormat !== 'knockout') {
+  if (competition.competitionFormat !== 'knockout' || competition.winnerClubId) {
     return { newFixtures: [], winnerClubId: null };
   }
 

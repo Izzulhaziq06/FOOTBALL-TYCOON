@@ -3,6 +3,7 @@ import { ArrowLeft, FolderOpen, Pencil, Plus, Save, Trash2 } from 'lucide-react'
 import { useCareerStore } from '../store/careerStore';
 import { useUiStore } from '../store/uiStore';
 import { ConfirmModal } from '../components/shared/ConfirmModal';
+import { GamePageHeader } from '../components/shared/GamePrimitives';
 
 export const SavesManager: React.FC = () => {
   const {
@@ -47,62 +48,59 @@ export const SavesManager: React.FC = () => {
   };
 
   return (
-    <div className={career ? 'space-y-6' : 'min-h-screen bg-[#0B0F17] text-slate-100 p-6 max-w-4xl mx-auto space-y-6'}>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          {!career && (
-            <button
-              type="button"
-              onClick={() => navigate('main_menu')}
-              className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Main Menu</span>
-            </button>
-          )}
-          <div>
-            <h1 className="font-display text-3xl font-bold text-white">Career Saves</h1>
-            <p className="text-xs text-slate-400">
-              Stored locally in IndexedDB · Multiple careers supported
-            </p>
-          </div>
-        </div>
+    <div className={career ? 'space-y-6' : 'min-h-screen ft-stadium-bg text-[#F4F5F0] p-4 sm:p-8 max-w-4xl mx-auto space-y-6'}>
+      {!career && (
+        <button
+          type="button"
+          onClick={() => navigate('main_menu')}
+          className="inline-flex items-center gap-2 rounded border border-slate-700 bg-[#0E1626] px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Main Menu</span>
+        </button>
+      )}
 
-        <div className="flex items-center gap-2">
-          {career && (
+      <GamePageHeader
+        eyebrow="IndexedDB Browser Persistence"
+        title="Career Saves"
+        subtitle="Multiple career slots stored privately on your device"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {career && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await saveCurrentCareer();
+                  pushToast('success', 'Current career saved.');
+                }}
+                className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white"
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>Save Current Career</span>
+              </button>
+            )}
             <button
               type="button"
-              onClick={async () => {
-                await saveCurrentCareer();
-                pushToast('success', 'Current career saved.');
-              }}
-              className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white"
+              onClick={() => navigate('new_career')}
+              className="inline-flex items-center gap-2 rounded border border-slate-700 bg-[#0B1220] hover:bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200"
             >
-              <Save className="h-3.5 w-3.5" />
-              <span>Save Current Career</span>
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Career</span>
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => navigate('new_career')}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>New Career</span>
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {saves.length === 0 ? (
-        <div className="rounded-lg border border-slate-800 bg-[#121824] p-10 text-center space-y-3">
-          <div className="text-base font-semibold text-white">No saved careers yet</div>
+        <div className="ft-panel rounded-lg p-10 text-center space-y-3">
+          <div className="font-display text-2xl font-bold text-[#F4F5F0]">No saved careers yet</div>
           <p className="text-sm text-slate-400 max-w-md mx-auto">
             Start a new career to create your first persistent browser save.
           </p>
           <button
             type="button"
             onClick={() => navigate('new_career')}
-            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+            className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
           >
             <Plus className="h-4 w-4" />
             <span>Start New Career</span>
@@ -117,48 +115,53 @@ export const SavesManager: React.FC = () => {
             return (
               <div
                 key={s.id}
-                className={`rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                  isCurrent
-                    ? 'border-emerald-500/50 bg-emerald-500/5'
-                    : 'border-slate-800 bg-[#121824]'
+                className={`ft-panel rounded-lg p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden ${
+                  isCurrent ? 'border-emerald-400/60 bg-emerald-500/8' : ''
                 }`}
               >
-                <div className="min-w-0 flex-1 space-y-1">
+                {isCurrent && (
+                  <div className="absolute inset-y-0 left-0 w-1 bg-emerald-400" aria-hidden="true" />
+                )}
+                <div className="min-w-0 flex-1 space-y-1 pl-1">
                   {isEditing ? (
                     <div className="flex items-center gap-2 max-w-sm">
                       <input
                         type="text"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="flex-1 rounded-md border border-slate-600 bg-[#0B0F17] px-3 py-1.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                        className="flex-1 rounded border border-slate-600 bg-[#070B14] px-3 py-1.5 text-sm text-[#F4F5F0] focus:border-emerald-500 focus:outline-none"
                       />
                       <button
                         type="button"
                         onClick={() => handleRenameSubmit(s.id)}
-                        className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white"
+                        className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white"
                       >
                         Save
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditingId(null)}
-                        className="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-300"
+                        className="rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300"
                       >
                         Cancel
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-white truncate">{s.saveName}</span>
+                      <span className="font-display text-xl font-bold text-[#F4F5F0] truncate">
+                        {s.saveName}
+                      </span>
                       {isCurrent && (
-                        <span className="text-xs text-emerald-400 font-medium">· Active</span>
+                        <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-bold">
+                          · Active
+                        </span>
                       )}
                     </div>
                   )}
-                  <div className="text-xs text-slate-400 tabular-nums">
+                  <div className="text-xs text-slate-300 tabular-nums font-mono">
                     {s.clubName} · {s.currentSeason} · MD {s.currentMatchday} · Manager {s.managerName}
                   </div>
-                  <div className="text-xs text-slate-500 font-mono">
+                  <div className="text-[11px] text-slate-500 font-mono">
                     Last played: {new Date(s.lastPlayedAt).toLocaleString()} · Save v{s.saveVersion}
                   </div>
                 </div>
@@ -167,7 +170,7 @@ export const SavesManager: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleLoad(s.id)}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-white"
+                    className="ft-chamfer-sm inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white"
                   >
                     <FolderOpen className="h-3.5 w-3.5" />
                     <span>Load</span>
@@ -179,7 +182,7 @@ export const SavesManager: React.FC = () => {
                       setEditValue(s.saveName);
                     }}
                     aria-label={`Rename ${s.saveName}`}
-                    className="inline-flex items-center justify-center rounded-md border border-slate-700 bg-slate-900 hover:bg-slate-800 p-2 text-slate-300"
+                    className="inline-flex items-center justify-center rounded border border-slate-700 bg-[#0B1220] hover:bg-slate-800 p-2 text-slate-300"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -187,7 +190,7 @@ export const SavesManager: React.FC = () => {
                     type="button"
                     onClick={() => setDeleteTarget({ id: s.id, name: s.saveName })}
                     aria-label={`Delete ${s.saveName}`}
-                    className="inline-flex items-center justify-center rounded-md border border-red-900/60 bg-red-950/30 hover:bg-red-900/40 p-2 text-red-300"
+                    className="inline-flex items-center justify-center rounded border border-red-900/60 bg-red-950/30 hover:bg-red-900/40 p-2 text-red-300"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

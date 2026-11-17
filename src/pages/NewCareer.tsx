@@ -5,6 +5,7 @@ import { useCareerStore } from '../store/careerStore';
 import { useUiStore } from '../store/uiStore';
 import { Club, ManagerProfile, SeasonId } from '../types';
 import { ClubCrest } from '../components/shared/ClubCrest';
+import { CompetitionEmblem, GameBrandMark, OvrBadge } from '../components/shared/GamePrimitives';
 import { formatMoney } from '../utils/format';
 
 type WizardStep = 1 | 2 | 3 | 4 | 5;
@@ -16,6 +17,14 @@ const PHILOSOPHIES: ManagerProfile['philosophy'][] = [
   'Balanced',
   'Pragmatic',
 ];
+
+const STEP_LABELS: Record<WizardStep, string> = {
+  1: 'Season',
+  2: 'League',
+  3: 'Club',
+  4: 'Manager',
+  5: 'Confirm',
+};
 
 export const NewCareer: React.FC = () => {
   const { startNewCareer, settings } = useCareerStore();
@@ -123,56 +132,78 @@ export const NewCareer: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-slate-100">
-      <header className="h-16 border-b border-slate-800/80 bg-[#0E1420] px-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="min-h-screen ft-stadium-bg text-[#F4F5F0]">
+      <header className="h-16 border-b border-slate-800/80 bg-[#070B14]/95 px-4 sm:px-6 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
           <button
             type="button"
             onClick={() => (step === 1 ? navigate('main_menu') : setStep((step - 1) as WizardStep))}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded border border-slate-700/80 bg-[#101829] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 shrink-0"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Back</span>
           </button>
-          <span className="font-display text-xl font-bold tracking-wider text-white">
-            FOOTBALL TYCOON · NEW CAREER
-          </span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <GameBrandMark size={24} className="hidden sm:block" />
+            <span className="font-display text-lg sm:text-xl font-extrabold tracking-wider text-[#F4F5F0] truncate">
+              FOOTBALL TYCOON · NEW CAREER
+            </span>
+          </div>
         </div>
-        <div className="text-xs font-mono text-slate-400 tabular-nums">Step {step} of 5</div>
+        <div className="text-xs font-mono text-emerald-400 tabular-nums shrink-0">
+          Step {step} of 5
+        </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        {/* Step Progress Strip */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        {/* Tactical Step Progress Bar */}
         <div className="grid grid-cols-5 gap-2">
           {([1, 2, 3, 4, 5] as WizardStep[]).map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => s <= step && setStep(s)}
-              className={`h-2 rounded-sm transition-colors ${
-                s === step
-                  ? 'bg-emerald-500'
-                  : s < step
-                    ? 'bg-emerald-800'
-                    : 'bg-slate-800'
-              }`}
+              className="text-left space-y-1.5 group"
               aria-label={`Step ${s}`}
-            />
+            >
+              <div
+                className={`h-1.5 rounded-xs transition-colors ${
+                  s === step
+                    ? 'bg-emerald-400'
+                    : s < step
+                      ? 'bg-emerald-700'
+                      : 'bg-slate-800'
+                }`}
+              />
+              <div
+                className={`text-[10px] font-mono uppercase tracking-wider truncate ${
+                  s === step
+                    ? 'text-emerald-300 font-bold'
+                    : s < step
+                      ? 'text-slate-300'
+                      : 'text-slate-500'
+                }`}
+              >
+                {s}. {STEP_LABELS[s]}
+              </div>
+            </button>
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-          <h1 className="font-display text-3xl font-bold text-white">{stepTitles[step]}</h1>
-          <div className="text-xs text-slate-400">
-            Selected: {selectedSeason}
+        <div className="ft-broadcast-strip rounded-lg px-5 py-4 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+          <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-[#F4F5F0] leading-none">
+            {stepTitles[step]}
+          </h1>
+          <div className="text-xs font-mono text-emerald-300">
+            {selectedSeason}
             {step >= 3 && selectedClub ? ` · ${selectedClub.name}` : ''}
           </div>
         </div>
 
         {/* STEP 1: HISTORICAL SEASON */}
         {step === 1 && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-300">
+          <div className="space-y-5">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               {DATABASE_MANIFEST.disclaimer}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -184,27 +215,34 @@ export const NewCareer: React.FC = () => {
                     type="button"
                     data-testid={`season-card-${season.seasonId}`}
                     onClick={() => setSelectedSeason(season.seasonId)}
-                    className={`text-left rounded-lg border p-5 transition-colors flex flex-col justify-between gap-4 ${
+                    className={`text-left rounded-lg p-5 transition-all flex flex-col justify-between gap-4 relative overflow-hidden ${
                       active
-                        ? 'border-emerald-500 bg-emerald-500/10'
-                        : 'border-slate-800 bg-[#121824] hover:border-slate-700'
+                        ? 'ft-panel border-emerald-400/70 bg-emerald-500/10 ring-1 ring-emerald-400/40'
+                        : 'ft-panel hover:border-slate-600/80'
                     }`}
                   >
+                    {active && (
+                      <div className="absolute top-0 inset-x-0 h-1 bg-emerald-400" aria-hidden="true" />
+                    )}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="font-display text-2xl font-bold text-white tabular-nums">
+                        <span className="font-display text-3xl font-extrabold text-[#F4F5F0] tabular-nums">
                           {season.seasonId}
                         </span>
-                        {active && <Check className="h-5 w-5 text-emerald-400" />}
+                        {active && (
+                          <span className="h-6 w-6 rounded-full bg-emerald-500/20 border border-emerald-400/60 flex items-center justify-center">
+                            <Check className="h-3.5 w-3.5 text-emerald-300" />
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs leading-relaxed text-slate-300">{season.description}</p>
                     </div>
                     <div className="pt-3 border-t border-slate-800/80 space-y-1 text-xs text-slate-400">
-                      <div>
-                        Clubs: <span className="text-slate-200 font-mono">{season.availableClubsCount}</span> ·
-                        Competitions: <span className="text-slate-200 font-mono">{season.availableCompetitions.length}</span>
+                      <div className="font-mono">
+                        Clubs: <span className="text-[#F4F5F0]">{season.availableClubsCount}</span> ·
+                        Competitions: <span className="text-[#F4F5F0]">{season.availableCompetitions.length}</span>
                       </div>
-                      <div className="text-emerald-400/90">{season.completenessLabel}</div>
+                      <div className="text-emerald-400/90 font-medium">{season.completenessLabel}</div>
                     </div>
                   </button>
                 );
@@ -214,7 +252,7 @@ export const NewCareer: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+                className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
               >
                 <span>Continue to Competition</span>
                 <ArrowRight className="h-4 w-4" />
@@ -238,10 +276,10 @@ export const NewCareer: React.FC = () => {
                     );
                     if (match) handleSelectLeague(match.id);
                   }}
-                  className={`px-3.5 py-2 rounded-md text-xs font-medium border transition-colors ${
+                  className={`px-3.5 py-2 rounded text-xs font-semibold border transition-colors min-h-[38px] ${
                     selectedCountry === country
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
-                      : 'border-slate-800 bg-[#121824] text-slate-300 hover:text-white'
+                      ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
+                      : 'border-slate-800 bg-[#0E1626] text-slate-300 hover:text-white'
                   }`}
                 >
                   {country}
@@ -258,19 +296,24 @@ export const NewCareer: React.FC = () => {
                     type="button"
                     data-testid={`league-card-${league.id}`}
                     onClick={() => handleSelectLeague(league.id)}
-                    className={`text-left rounded-lg border p-5 transition-colors flex items-center justify-between ${
+                    className={`text-left rounded-lg p-5 transition-all flex items-center justify-between gap-4 relative overflow-hidden ${
                       active
-                        ? 'border-emerald-500 bg-emerald-500/10'
-                        : 'border-slate-800 bg-[#121824] hover:border-slate-700'
+                        ? 'ft-panel border-emerald-400/70 bg-emerald-500/10 ring-1 ring-emerald-400/40'
+                        : 'ft-panel hover:border-slate-600/80'
                     }`}
                   >
-                    <div>
-                      <div className="text-xs text-slate-400">{league.country} · Tier {league.tier}</div>
-                      <div className="font-display text-2xl font-bold text-white mt-0.5">
-                        {league.name}
-                      </div>
-                      <div className="text-xs text-slate-400 mt-1 tabular-nums">
-                        {league.clubIds.length} Clubs · {league.totalMatchdays} Matchdays
+                    <div className="flex items-center gap-4 min-w-0">
+                      <CompetitionEmblem competitionId={league.id} size={46} />
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                          {league.country} · Tier {league.tier}
+                        </div>
+                        <div className="font-display text-2xl font-extrabold text-[#F4F5F0] mt-0.5 truncate">
+                          {league.name}
+                        </div>
+                        <div className="text-xs font-mono text-slate-400 mt-1 tabular-nums">
+                          {league.clubIds.length} Clubs · {league.totalMatchdays} Matchdays
+                        </div>
                       </div>
                     </div>
                     {active && <Check className="h-5 w-5 text-emerald-400 shrink-0" />}
@@ -283,7 +326,7 @@ export const NewCareer: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+                className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
               >
                 <span>Continue to Club Selection</span>
                 <ArrowRight className="h-4 w-4" />
@@ -296,7 +339,7 @@ export const NewCareer: React.FC = () => {
         {step === 3 && (
           <div className="space-y-5">
             {/* Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 rounded-lg border border-slate-800 bg-[#121824] p-4">
+            <div className="ft-panel rounded-lg p-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div className="relative sm:col-span-2">
                 <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -304,14 +347,14 @@ export const NewCareer: React.FC = () => {
                   value={clubSearch}
                   onChange={(e) => setClubSearch(e.target.value)}
                   placeholder="Filter clubs by name..."
-                  className="w-full rounded-md border border-slate-700 bg-[#0B0F17] pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded border border-slate-700/80 bg-[#070B14] pl-9 pr-3 py-2 text-sm text-[#F4F5F0] placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
               <select
                 value={minRepFilter}
                 onChange={(e) => setMinRepFilter(Number(e.target.value))}
                 aria-label="Minimum club reputation"
-                className="rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                className="rounded border border-slate-700/80 bg-[#070B14] px-3 py-2 text-sm text-[#F4F5F0] focus:border-emerald-500 focus:outline-none"
               >
                 <option value={0}>Any Reputation</option>
                 <option value={80}>Reputation 80+</option>
@@ -322,7 +365,7 @@ export const NewCareer: React.FC = () => {
                 value={minFinanceFilter}
                 onChange={(e) => setMinFinanceFilter(Number(e.target.value))}
                 aria-label="Minimum financial strength"
-                className="rounded-md border border-slate-700 bg-[#0B0F17] px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                className="rounded border border-slate-700/80 bg-[#070B14] px-3 py-2 text-sm text-[#F4F5F0] focus:border-emerald-500 focus:outline-none"
               >
                 <option value={0}>Any Finances</option>
                 <option value={75}>Strong Finances (75+)</option>
@@ -330,7 +373,7 @@ export const NewCareer: React.FC = () => {
               </select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {availableClubs.map((club) => {
                 const active = selectedClub?.id === club.id;
                 const xiStrength = getClubSquadStrength(club);
@@ -341,27 +384,34 @@ export const NewCareer: React.FC = () => {
                     type="button"
                     data-testid={`club-card-${club.id}`}
                     onClick={() => setSelectedClubId(club.id)}
-                    className={`text-left rounded-lg border p-4 transition-colors flex items-center gap-4 ${
+                    className={`text-left rounded-lg p-4 transition-all flex items-center gap-4 relative overflow-hidden ${
                       active
-                        ? 'border-emerald-500 bg-emerald-500/10'
-                        : 'border-slate-800 bg-[#121824] hover:border-slate-700'
+                        ? 'ft-panel border-emerald-400/70 bg-emerald-500/10 ring-1 ring-emerald-400/40'
+                        : 'ft-panel hover:border-slate-600/80'
                     }`}
                   >
-                    <ClubCrest crest={club.crest} size={48} />
+                    <div
+                      className="absolute inset-y-0 left-0 w-1"
+                      style={{ backgroundColor: club.crest.primaryColor }}
+                      aria-hidden="true"
+                    />
+                    <ClubCrest crest={club.crest} size={50} className="ml-1" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-white truncate">{club.name}</span>
-                        <span className="font-mono text-xs text-emerald-400 tabular-nums shrink-0">
-                          {xiStrength} OVR
+                        <span className="font-display text-xl font-bold text-[#F4F5F0] truncate">
+                          {club.name}
                         </span>
+                        <OvrBadge rating={xiStrength} size="sm" />
                       </div>
-                      <div className="text-xs text-slate-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5 truncate">
                         {club.country} · {compName} · {club.stadiumName}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-300 mt-2 font-mono tabular-nums">
                         <span>REP {club.reputation}</span>
-                        <span>·</span>
-                        <span>Budget {formatMoney(club.transferBudget, settings.currency)}</span>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-emerald-300">
+                          Budget {formatMoney(club.transferBudget, settings.currency)}
+                        </span>
                       </div>
                     </div>
                   </button>
@@ -370,7 +420,7 @@ export const NewCareer: React.FC = () => {
             </div>
 
             {availableClubs.length === 0 && (
-              <div className="rounded-lg border border-slate-800 bg-[#121824] p-8 text-center text-sm text-slate-400">
+              <div className="ft-panel rounded-lg p-8 text-center text-sm text-slate-400">
                 No clubs match the selected reputation/finance filters.
               </div>
             )}
@@ -383,7 +433,7 @@ export const NewCareer: React.FC = () => {
                   if (selectedClub) setSelectedClubId(selectedClub.id);
                   setStep(4);
                 }}
-                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-2.5 text-sm font-semibold text-white"
+                className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
               >
                 <span>Continue to Manager Profile</span>
                 <ArrowRight className="h-4 w-4" />
@@ -394,10 +444,10 @@ export const NewCareer: React.FC = () => {
 
         {/* STEP 4: MANAGER PROFILE */}
         {step === 4 && (
-          <div className="rounded-lg border border-slate-800 bg-[#121824] p-6 space-y-5 max-w-2xl">
+          <div className="ft-panel rounded-lg p-6 space-y-5 max-w-2xl">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="mgr-name" className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label htmlFor="mgr-name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
                   Manager Name
                 </label>
                 <input
@@ -405,11 +455,11 @@ export const NewCareer: React.FC = () => {
                   type="text"
                   value={managerName}
                   onChange={(e) => setManagerName(e.target.value)}
-                  className="w-full rounded-md border border-slate-700 bg-[#0B0F17] px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded border border-slate-700/80 bg-[#070B14] px-3.5 py-2.5 text-sm text-[#F4F5F0] focus:border-emerald-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label htmlFor="mgr-nat" className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label htmlFor="mgr-nat" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
                   Nationality
                 </label>
                 <input
@@ -417,13 +467,13 @@ export const NewCareer: React.FC = () => {
                   type="text"
                   value={managerNationality}
                   onChange={(e) => setManagerNationality(e.target.value)}
-                  className="w-full rounded-md border border-slate-700 bg-[#0B0F17] px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded border border-slate-700/80 bg-[#070B14] px-3.5 py-2.5 text-sm text-[#F4F5F0] focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <span className="block text-xs font-medium text-slate-300 mb-2">
+              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                 Preferred Tactical Philosophy
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -432,10 +482,10 @@ export const NewCareer: React.FC = () => {
                     key={ph}
                     type="button"
                     onClick={() => setPhilosophy(ph)}
-                    className={`rounded-md border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    className={`rounded border px-3 py-2.5 text-sm font-semibold transition-colors ${
                       philosophy === ph
-                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
-                        : 'border-slate-700 bg-[#0B0F17] text-slate-300 hover:text-white'
+                        ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
+                        : 'border-slate-700/80 bg-[#070B14] text-slate-300 hover:text-white'
                     }`}
                   >
                     {ph}
@@ -445,7 +495,7 @@ export const NewCareer: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="save-label" className="block text-xs font-medium text-slate-300 mb-1.5">
+              <label htmlFor="save-label" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
                 Career Save Label (Optional)
               </label>
               <input
@@ -454,7 +504,7 @@ export const NewCareer: React.FC = () => {
                 value={saveName}
                 onChange={(e) => setSaveName(e.target.value)}
                 placeholder={`${selectedClub?.name ?? 'Club'} (${selectedSeason})`}
-                className="w-full rounded-md border border-slate-700 bg-[#0B0F17] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded border border-slate-700/80 bg-[#070B14] px-3.5 py-2.5 text-sm text-[#F4F5F0] placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
               />
             </div>
 
@@ -462,7 +512,7 @@ export const NewCareer: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStep(5)}
-                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+                className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
               >
                 <span>Review Career Summary</span>
                 <ArrowRight className="h-4 w-4" />
@@ -473,14 +523,21 @@ export const NewCareer: React.FC = () => {
 
         {/* STEP 5: CONFIRMATION */}
         {step === 5 && selectedClub && (
-          <div className="rounded-lg border border-slate-800 bg-[#121824] p-6 space-y-6 max-w-2xl">
-            <div className="flex items-center gap-4 pb-5 border-b border-slate-800">
-              <ClubCrest crest={selectedClub.crest} size={56} />
+          <div className="ft-panel rounded-lg p-6 space-y-6 max-w-2xl relative overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 w-1.5"
+              style={{ backgroundColor: selectedClub.crest.primaryColor }}
+              aria-hidden="true"
+            />
+            <div className="flex items-center gap-4 pb-5 border-b border-slate-800 pl-2">
+              <ClubCrest crest={selectedClub.crest} size={60} />
               <div>
-                <div className="text-xs text-emerald-400 font-medium">
-                  {selectedSeason} Historical Career
+                <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 font-semibold">
+                  {selectedSeason} Historical Career Appointment
                 </div>
-                <h2 className="font-display text-3xl font-bold text-white">{selectedClub.name}</h2>
+                <h2 className="font-display text-3xl font-extrabold text-[#F4F5F0]">
+                  {selectedClub.name}
+                </h2>
                 <div className="text-xs text-slate-400">
                   {seasonBundle.competitions[selectedClub.leagueId]?.name} · {selectedClub.stadiumName} (
                   {selectedClub.stadiumCapacity.toLocaleString()})
@@ -488,44 +545,44 @@ export const NewCareer: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm pl-2">
               <div>
-                <div className="text-xs text-slate-400">Manager</div>
-                <div className="font-semibold text-white">{managerName || 'Alex Mercer'}</div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Manager</div>
+                <div className="font-semibold text-[#F4F5F0] mt-0.5">{managerName || 'Alex Mercer'}</div>
               </div>
               <div>
-                <div className="text-xs text-slate-400">Nationality</div>
-                <div className="font-semibold text-white">{managerNationality || 'England'}</div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Nationality</div>
+                <div className="font-semibold text-[#F4F5F0] mt-0.5">{managerNationality || 'England'}</div>
               </div>
               <div>
-                <div className="text-xs text-slate-400">Philosophy</div>
-                <div className="font-semibold text-white">{philosophy}</div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Philosophy</div>
+                <div className="font-semibold text-[#F4F5F0] mt-0.5">{philosophy}</div>
               </div>
               <div>
-                <div className="text-xs text-slate-400">Starting Balance</div>
-                <div className="font-mono font-semibold text-white tabular-nums">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Starting Balance</div>
+                <div className="font-mono font-semibold text-[#F4F5F0] tabular-nums mt-0.5">
                   {formatMoney(selectedClub.balance, settings.currency)}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-slate-400">Transfer Budget</div>
-                <div className="font-mono font-semibold text-emerald-400 tabular-nums">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Transfer Budget</div>
+                <div className="font-mono font-semibold text-emerald-400 tabular-nums mt-0.5">
                   {formatMoney(selectedClub.transferBudget, settings.currency)}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-slate-400">Squad Size</div>
-                <div className="font-mono font-semibold text-white tabular-nums">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Squad Size</div>
+                <div className="font-mono font-semibold text-[#F4F5F0] tabular-nums mt-0.5">
                   {selectedClub.squadIds.length} Players
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+            <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-800 pl-2">
               <button
                 type="button"
                 onClick={() => setStep(4)}
-                className="rounded-md border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                className="rounded border border-slate-700 bg-[#0B111E] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-200 hover:bg-slate-800"
               >
                 Edit Profile
               </button>
@@ -533,7 +590,7 @@ export const NewCareer: React.FC = () => {
                 type="button"
                 disabled={creating}
                 onClick={handleConfirmCreate}
-                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 px-6 py-2.5 text-sm font-semibold text-white"
+                className="ft-chamfer-sm inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
               >
                 <Check className="h-4 w-4" />
                 <span>{creating ? 'Creating Career...' : 'Confirm & Start Career'}</span>

@@ -9,6 +9,7 @@ interface ClubCrestProps {
 
 export const ClubCrest: React.FC<ClubCrestProps> = ({ crest, size = 40, className = '' }) => {
   const clipId = React.useId();
+  const glossId = React.useId();
 
   const renderShapePath = () => {
     switch (crest.shape) {
@@ -31,13 +32,18 @@ export const ClubCrest: React.FC<ClubCrestProps> = ({ crest, size = 40, classNam
       width={size}
       height={size}
       viewBox="0 0 64 64"
-      className={`shrink-0 ${className}`}
+      className={`shrink-0 drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] ${className}`}
       aria-hidden="true"
     >
       <defs>
         <clipPath id={clipId}>
           <path d={shapePath} />
         </clipPath>
+        <linearGradient id={glossId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.22" />
+          <stop offset="48%" stopColor="#FFFFFF" stopOpacity="0.02" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.28" />
+        </linearGradient>
       </defs>
 
       <g clipPath={`url(#${clipId})`}>
@@ -72,30 +78,33 @@ export const ClubCrest: React.FC<ClubCrestProps> = ({ crest, size = 40, classNam
         {crest.pattern === 'diamond' && (
           <polygon points="32,12 52,32 32,52 12,32" fill={crest.secondaryColor} opacity="0.85" />
         )}
+
+        <rect x="0" y="0" width="64" height="64" fill={`url(#${glossId})`} />
       </g>
 
       <path d={shapePath} fill="none" stroke={crest.accentColor} strokeWidth="2.5" />
+      <path d={shapePath} fill="none" stroke="#FFFFFF" strokeOpacity="0.18" strokeWidth="0.8" />
 
       <rect
-        x="14"
-        y="23"
-        width="36"
-        height="18"
-        rx="3"
-        fill="#0B0F17"
-        fillOpacity="0.82"
+        x="13"
+        y="22.5"
+        width="38"
+        height="19"
+        rx="2"
+        fill="#070B14"
+        fillOpacity="0.88"
         stroke={crest.accentColor}
-        strokeWidth="1"
+        strokeWidth="1.1"
       />
       <text
         x="32"
         y="35.5"
         textAnchor="middle"
-        fill="#F8FAFC"
+        fill="#F4F5F0"
         fontSize={crest.monogram.length > 3 ? '9.5' : '11'}
-        fontWeight="700"
+        fontWeight="800"
         fontFamily="Barlow Condensed, sans-serif"
-        letterSpacing="0.5"
+        letterSpacing="0.6"
       >
         {crest.monogram}
       </text>

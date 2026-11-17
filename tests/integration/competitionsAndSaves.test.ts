@@ -31,6 +31,14 @@ describe('Competitions, Progression & Save System Integration', () => {
       career = advanceMatchday(career);
     }
 
+    const newsIdsS1 = career.news.map((n) => n.id);
+    expect(new Set(newsIdsS1).size).toBe(newsIdsS1.length);
+    expect(newsIdsS1.filter((id) => id === 'news_win_ucl_2014/15').length).toBeLessThanOrEqual(1);
+    expect(newsIdsS1.filter((id) => id === 'news_win_uel_2014/15').length).toBeLessThanOrEqual(1);
+
+    const txIdsS1 = career.transactions.map((t) => t.id);
+    expect(new Set(txIdsS1).size).toBe(txIdsS1.length);
+
     const standings = calculateLeagueStandings(
       career.competitions['epl'],
       career.fixtures,
@@ -57,11 +65,19 @@ describe('Competitions, Progression & Save System Integration', () => {
     }
 
     // Rollover to next season (marked clearly as generated career season if advancing beyond historical)
-    const nextSeasonCareer = advanceToNextSeason(career);
+    let nextSeasonCareer = advanceToNextSeason(career);
     expect(nextSeasonCareer.currentSeason).toBe('2015/16');
     expect(nextSeasonCareer.isGeneratedSeason).toBe(true);
     expect(nextSeasonCareer.currentMatchday).toBe(1);
     expect(nextSeasonCareer.seasonHistory).toHaveLength(1);
+
+    for (let md = 1; md <= nextSeasonCareer.totalMatchdays; md += 1) {
+      nextSeasonCareer = advanceMatchday(nextSeasonCareer);
+    }
+    const newsIdsS2 = nextSeasonCareer.news.map((n) => n.id);
+    expect(new Set(newsIdsS2).size).toBe(newsIdsS2.length);
+    const txIdsS2 = nextSeasonCareer.transactions.map((t) => t.id);
+    expect(new Set(txIdsS2).size).toBe(txIdsS2.length);
   });
 
   it('saves, lists, loads, renames, deletes, and migrates multiple careers', async () => {
@@ -113,11 +129,11 @@ describe('Competitions, Progression & Save System Integration', () => {
     expect(afterDelete[0].id).toBe(c1.id);
   });
 
-  it('persists custom Academy player skills and preserves skills across season rollover without loan sale exploits', async () => {
+  it('persists unlocked/rerolled Skill 2, Academy Natural Skill, and token balance across reload and season rollover', async () => {
     clearMemoryFallbackForTests();
     const {
       createAcademyPlayer,
-      updatePlayerSkills,
+      unlockOrRerollSkill2,
     } = await import('../../src/engine/careerEngine');
     const {
       executeCompletedTransfer,
@@ -135,12 +151,24 @@ describe('Competitions, Progression & Save System Integration', () => {
       philosophy: 'Balanced',
     });
 
-    // Customize Eden Hazard skills
-    const customRes = updatePlayerSkills(career, 'eden_hazard', 'creativity', 'free_kicks');
-    expect(customRes.ok).toBe(true);
-    career = customRes.nextState;
+    expect(career.universalSkillTokens).toBe(3);
 
-    // Create Academy player
+    // Unlock and reroll Eden Hazard Developed Skill (3 -> 2 -> 1 token)
+    const unlockRes = unlockOrRerollSkill2(career, 'eden_hazard');
+    expect(unlockRes.ok).toBe(true);
+    career = unlockRes.nextState;
+    const firstRoll = career.players['eden_hazard'].skill2!;
+    expect(career.universalSkillTokens).toBe(2);
+
+    const rerollRes = unlockOrRerollSkill2(career, 'eden_hazard');
+    expect(rerollRes.ok).toBe(true);
+    career = rerollRes.nextState;
+    const secondRoll = career.players['eden_hazard'].skill2!;
+    expect(secondRoll).not.toBe(firstRoll);
+    expect(secondRoll).not.toBe(career.players['eden_hazard'].skill1);
+    expect(career.universalSkillTokens).toBe(1);
+
+    // Create Academy player (+1 token -> 2 tokens)
     const acadRes = createAcademyPlayer(career, {
       fullName: 'Mason Sterling-Cole',
       nationality: 'England',
@@ -175,13 +203,15 @@ describe('Competitions, Progression & Save System Integration', () => {
         leadership: 58,
         workRate: 74,
       },
-      skill1: 'shooting',
-      skill2: 'att_positioning',
       grantSuperstar: false,
     });
     expect(acadRes.ok).toBe(true);
     career = acadRes.nextState;
     const acadId = acadRes.player!.id;
+    const acadNatural = career.players[acadId].skill1!;
+    expect(acadNatural).toBeTruthy();
+    expect(career.players[acadId].skill2).toBeNull();
+    expect(career.universalSkillTokens).toBe(2);
 
     // Loan in Carlos Vela and verify selling loaned-in player is blocked
     let loanSession = startTransferNegotiation(career, 'carlos_vela', 'loan');
@@ -208,19 +238,24 @@ describe('Competitions, Progression & Save System Integration', () => {
 
     await saveCareer(career);
     const reloaded = await loadCareer(career.id);
-    expect(reloaded?.players[acadId]?.skill1).toBe('shooting');
-    expect(reloaded?.players[acadId]?.skill2).toBe('att_positioning');
-    expect(reloaded?.players['eden_hazard']?.skill1).toBe('creativity');
+    expect(reloaded?.universalSkillTokens).toBe(2);
+    expect(reloaded?.players[acadId]?.skill1).toBe(acadNatural);
+    expect(reloaded?.players[acadId]?.skill2).toBeNull();
+    expect(reloaded?.players['eden_hazard']?.skill1).toBe('dribbling');
+    expect(reloaded?.players['eden_hazard']?.skill2).toBe(secondRoll);
 
-    // Simulate season & roll over — custom skills must remain intact and ages increment
+    // Simulate season & roll over — unlocked skills remain intact, ages increment, and tokens persist/grow
     let endSeason = reloaded!;
     for (let md = 1; md <= endSeason.totalMatchdays; md += 1) {
       endSeason = advanceMatchday(endSeason);
     }
+    const tokensBeforeRollover = endSeason.universalSkillTokens;
     const nextSeason = advanceToNextSeason(endSeason);
-    expect(nextSeason.players['eden_hazard'].skill1).toBe('creativity');
-    expect(nextSeason.players['eden_hazard'].skill2).toBe('free_kicks');
-    expect(nextSeason.players[acadId].skill1).toBe('shooting');
+    expect(nextSeason.universalSkillTokens).toBeGreaterThanOrEqual(tokensBeforeRollover);
+    expect(nextSeason.players['eden_hazard'].skill1).toBe('dribbling');
+    expect(nextSeason.players['eden_hazard'].skill2).toBe(secondRoll);
+    expect(nextSeason.players[acadId].skill1).toBe(acadNatural);
+    expect(nextSeason.players[acadId].skill2).toBeNull();
     expect(nextSeason.players[acadId].age).toBe(18);
     expect(nextSeason.players[acadId].seasonId).toBe('2015/16');
   });
